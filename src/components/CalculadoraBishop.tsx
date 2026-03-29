@@ -74,15 +74,15 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">DILATAÇÃO (CM)</label>
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">DILATAÇÃO (CM)</label>
               <div className="relative">
                 <select 
                   value={dilatacao}
                   onChange={(e) => setDilatacao(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none font-bold text-slate-700 text-sm"
                 >
                   <option value={0}>Fechado (0)</option>
                   <option value={1}>1-2 cm (1)</option>
@@ -95,13 +95,13 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">ESVAECIMENTO (%)</label>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">ESVAECIMENTO (%)</label>
               <div className="relative">
                 <select 
                   value={apagamento}
                   onChange={(e) => setApagamento(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none font-bold text-slate-700 text-sm"
                 >
                   <option value={0}>0-30% (0)</option>
                   <option value={1}>40-50% (1)</option>
@@ -114,13 +114,13 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">CONSISTÊNCIA</label>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">CONSISTÊNCIA</label>
               <div className="relative">
                 <select 
                   value={consistencia}
                   onChange={(e) => setConsistencia(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none font-bold text-slate-700 text-sm"
                 >
                   <option value={0}>Firme (0)</option>
                   <option value={1}>Médio (1)</option>
@@ -132,13 +132,13 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">POSIÇÃO</label>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">POSIÇÃO</label>
               <div className="relative">
                 <select 
                   value={posicao}
                   onChange={(e) => setPosicao(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none font-bold text-slate-700 text-sm"
                 >
                   <option value={0}>Posterior (0)</option>
                   <option value={1}>Mediano (1)</option>
@@ -150,13 +150,13 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">ALTURA DA APRESENTAÇÃO (DE LEE)</label>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">ALTURA DA APRESENTAÇÃO (DE LEE)</label>
               <div className="relative">
                 <select 
                   value={estatura}
                   onChange={(e) => setEstatura(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none font-bold text-slate-700 text-sm"
                 >
                   <option value={0}>-3 (0)</option>
                   <option value={1}>-2 (1)</option>
@@ -170,13 +170,13 @@ export function CalculadoraBishop({ onClose, onInsert }: CalculadoraBishopProps)
             </div>
           </div>
 
-          <div className={`rounded-2xl p-6 border text-center mt-6 transition-colors ${getScoreBg(totalScore)}`}>
-            <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${getScoreColor(totalScore)} opacity-80`}>PONTUAÇÃO TOTAL</p>
+          <div className={`rounded-2xl p-6 border text-center transition-all duration-300 ${getScoreBg(totalScore)}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${getScoreColor(totalScore)} opacity-80`}>PONTUAÇÃO TOTAL</p>
             <div className="flex items-baseline justify-center gap-1 mb-2">
-              <span className={`text-4xl font-black ${getScoreColor(totalScore)}`}>{totalScore}</span>
+              <span className={`text-5xl font-black ${getScoreColor(totalScore)}`}>{totalScore}</span>
               <span className={`text-xl font-bold ${getScoreColor(totalScore)} opacity-50`}>/13</span>
             </div>
-            <p className={`text-sm font-medium ${getScoreColor(totalScore)}`}>{getInterpretation(totalScore)}</p>
+            <p className={`text-sm font-bold ${getScoreColor(totalScore)}`}>{getInterpretation(totalScore)}</p>
           </div>
         </div>
 

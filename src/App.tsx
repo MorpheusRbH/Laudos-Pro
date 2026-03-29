@@ -18,7 +18,9 @@ import {
   Baby,
   Calendar,
   Ruler,
-  Activity
+  Activity,
+  ClipboardList,
+  BookOpen
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -36,13 +38,33 @@ import { calculateHadlockEFW, calculateHadlockGA, calculateHadlockGAFromCRL, cal
 import { CalculadoraBarcelona } from './components/CalculadoraBarcelona';
 import { CalculadoraIG } from './components/CalculadoraIG';
 import { CalculadoraBishop } from './components/CalculadoraBishop';
+import CalculadoraBiradsMama from './components/CalculadoraBiradsMama';
 import { CalculadoraOrads } from './components/CalculadoraOrads';
+
+// Editor Ruler Component
+const EditorRuler = () => {
+  return (
+    <div className="w-[21cm] h-6 bg-white border-b border-slate-200 flex items-end px-[2.5cm] relative overflow-hidden shrink-0 mb-4 shadow-sm rounded-t-sm">
+      {Array.from({ length: 16 }).map((_, i) => (
+        <div key={i} className="flex-1 flex items-end justify-between h-full border-l border-slate-100 last:border-r">
+          <div className="relative h-full w-full">
+            <span className="absolute -top-1 left-1 text-[9px] text-slate-400 font-bold">{i + 1}</span>
+            <div className="absolute bottom-0 left-1/2 w-px h-2 bg-slate-300" />
+            <div className="absolute bottom-0 left-1/4 w-px h-1 bg-slate-200" />
+            <div className="absolute bottom-0 left-3/4 w-px h-1 bg-slate-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function App() {
   // State
   const [showCalcBarcelona, setShowCalcBarcelona] = useState(false);
   const [showCalcIG, setShowCalcIG] = useState(false);
   const [showCalcBishop, setShowCalcBishop] = useState(false);
+  const [showCalcBiradsMama, setShowCalcBiradsMama] = useState(false);
   
   const [specialties, setSpecialties] = useState<Specialty[]>(() => {
     const saved = localStorage.getItem('laudospro_specialties_v3');
@@ -57,12 +79,17 @@ export default function App() {
     const saved = localStorage.getItem('laudospro_masks_v10');
     if (saved) {
       let parsed = JSON.parse(saved);
-      // Force update m4 and m5 if they have no fields or missing new fields
+      // Force update m4, m5, m7, m8 if they have missing fields or missing formatting
       parsed = parsed.map((p: any) => {
-        if (p.id === 'm4' || p.id === 'm5') {
+        if (p.id === 'm4' || p.id === 'm5' || p.id === 'm7' || p.id === 'm8') {
+          const isUrology = p.id === 'm7' || p.id === 'm8';
+          // Check for bold tags in urology masks to ensure they are updated
+          const missingBold = isUrology && !p.baseContent.includes('<b>');
           const hasMissingFields = p.id === 'm5' && !p.fields?.some((f: any) => f.id === 'ig_clinica_semanas');
-          if (!p.fields || p.fields.length === 0 || hasMissingFields) {
-            return INITIAL_MASKS.find(m => m.id === p.id) || p;
+          
+          if (!p.fields || p.fields.length === 0 || hasMissingFields || missingBold) {
+            const initial = INITIAL_MASKS.find(m => m.id === p.id);
+            if (initial) return initial;
           }
         }
         return p;
@@ -90,11 +117,117 @@ export default function App() {
   const [isStandaloneCalc, setIsStandaloneCalc] = useState(false);
   const [showOradsModal, setShowOradsModal] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  useEffect(() => {
+    document.execCommand('styleWithCSS', false, 'true');
+  }, []);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [useBarcelona, setUseBarcelona] = useState(true);
+  const [pageCount, setPageCount] = useState(1);
+  const [currentFontSize, setCurrentFontSize] = useState('11pt');
+  const [currentFontFamily, setCurrentFontFamily] = useState('Arial');
+  const [currentLineHeight, setCurrentLineHeight] = useState('1.15');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isCentralPanelOpen, setIsCentralPanelOpen] = useState(true);
+  const [editorZoom, setEditorZoom] = useState(1);
   
+  // Auto-fit effect
+  useEffect(() => {
+    const handleResize = () => {
+      if (editorZoom === 0) { // 0 means auto-fit
+        const container = document.querySelector('.editor-scroll-container');
+        if (container) {
+          const availableWidth = container.clientWidth - 64; // 64px for padding
+          const sheetWidthPx = 21 * 37.7952755906; // 21cm to px (approx)
+          const fitZoom = Math.min(1, availableWidth / sheetWidthPx);
+          setEditorZoom(Math.floor(fitZoom * 10) / 10);
+        }
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    if (editorZoom === 0) handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [editorZoom, isSidebarOpen, isCentralPanelOpen]);
+
   // Editor Ref
   const editorRef = useRef<HTMLDivElement>(null);
+
+  const updateToolbarState = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      let node = range.commonAncestorContainer;
+      if (node.nodeType === 3) node = node.parentNode!;
+
+      if (node && node instanceof Element) {
+        const style = window.getComputedStyle(node);
+        
+        // Convert px to pt for the selector (1pt = 1.333px)
+        const pxSize = parseFloat(style.fontSize);
+        const ptSize = Math.round((pxSize / 1.333) * 10) / 10;
+        
+        // Find closest supported font size to keep the select synced
+        const supportedSizes = [8, 9, 9.5, 10, 10.5, 11, 11.5, 12, 13, 14, 15, 16, 18, 20, 24];
+        const closest = supportedSizes.reduce((prev, curr) => 
+          Math.abs(curr - ptSize) < Math.abs(prev - ptSize) ? curr : prev
+        );
+        setCurrentFontSize(closest.toString());
+        
+        const family = style.fontFamily.split(',')[0].replace(/['"]/g, '');
+        setCurrentFontFamily(family);
+        
+        // Normalize line height
+        const lh = style.lineHeight;
+        if (lh === 'normal') {
+          setCurrentLineHeight('1.15');
+        } else if (lh.includes('px')) {
+          const pxLh = parseFloat(lh);
+          const pxFs = parseFloat(style.fontSize);
+          const ratio = Math.round((pxLh / pxFs) * 100) / 100;
+          if (ratio < 1.1) setCurrentLineHeight('1.0');
+          else if (ratio < 1.3) setCurrentLineHeight('1.15');
+          else if (ratio < 1.7) setCurrentLineHeight('1.5');
+          else setCurrentLineHeight('2.0');
+        } else {
+          setCurrentLineHeight(lh);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const updatePageCount = () => {
+      if (editorRef.current) {
+        const height = editorRef.current.scrollHeight;
+        // A4 height is 29.7cm. In pixels (96dpi), it's ~1123px.
+        // We use the same measurement as the background pages.
+        const pixelsPerPage = 29.7 * (96 / 2.54); 
+        const count = Math.max(1, Math.ceil(height / pixelsPerPage));
+        setPageCount(count);
+      }
+    };
+
+    const observer = new ResizeObserver(updatePageCount);
+    if (editorRef.current) observer.observe(editorRef.current);
+    
+    // Also update on input to be more reactive
+    const editor = editorRef.current;
+    if (editor) {
+      editor.addEventListener('input', updatePageCount);
+      editor.addEventListener('keyup', updateToolbarState);
+      editor.addEventListener('mouseup', updateToolbarState);
+    }
+    
+    return () => {
+      observer.disconnect();
+      if (editor) {
+        editor.removeEventListener('input', updatePageCount);
+        editor.removeEventListener('keyup', updateToolbarState);
+        editor.removeEventListener('mouseup', updateToolbarState);
+      }
+    };
+  }, []);
   const savedRangeRef = useRef<Range | null>(null);
 
   const saveSelection = () => {
@@ -114,6 +247,70 @@ export default function App() {
         selection.removeAllRanges();
         selection.addRange(savedRangeRef.current);
       }
+    }
+  };
+
+  const changeTextCase = (type: 'upper' | 'sentence') => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    
+    let text = selection.toString();
+    if (type === 'upper') {
+      text = text.toUpperCase();
+    } else {
+      text = text.toLowerCase().replace(/(^\s*\w|[\.\!\?]\s*\w)/g, c => c.toUpperCase());
+    }
+    
+    document.execCommand('insertText', false, text);
+  };
+
+  const applyLineHeight = (value: string) => {
+    const selection = window.getSelection();
+    if (!selection) return;
+    
+    let node = selection.anchorNode;
+    while (node && node !== editorRef.current) {
+      if (node.nodeType === 1) {
+        const el = node as HTMLElement;
+        const display = window.getComputedStyle(el).display;
+        if (display === 'block' || el.tagName === 'P' || el.tagName === 'DIV') {
+          el.style.lineHeight = value;
+          break;
+        }
+      }
+      node = node.parentNode;
+    }
+    setCurrentLineHeight(value);
+  };
+
+  const applyFontSize = (size: string) => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+
+    // Temporarily disable styleWithCSS to get predictable <font> tags for replacement
+    document.execCommand('styleWithCSS', false, 'false');
+    document.execCommand('fontSize', false, '7');
+    
+    if (editorRef.current) {
+      const fontTags = Array.from(editorRef.current.querySelectorAll('font[size="7"]')) as HTMLElement[];
+      // Process backwards to handle nested tags correctly
+      fontTags.reverse().forEach(font => {
+        const span = document.createElement('span');
+        span.style.fontSize = size;
+        while (font.firstChild) span.appendChild(font.firstChild);
+        font.parentNode?.replaceChild(span, font);
+      });
+    }
+    
+    // Re-enable styleWithCSS for other operations
+    document.execCommand('styleWithCSS', false, 'true');
+    
+    setCurrentFontSize(size.replace('pt', ''));
+    
+    // Trigger page count update
+    if (editorRef.current) {
+      const event = new Event('input', { bubbles: true });
+      editorRef.current.dispatchEvent(event);
     }
   };
 
@@ -255,6 +452,12 @@ export default function App() {
     // Use execCommand for better integration with contentEditable (preserves undo history)
     document.execCommand('insertHTML', false, html);
     saveSelection(); // Update saved selection after insertion
+  };
+
+  const stripHtml = (html: string) => {
+    const tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
   };
 
   const handleSelectMask = (mask: Mask) => {
@@ -427,26 +630,29 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen w-screen bg-slate-100 text-slate-900 font-sans overflow-hidden relative">
       {/* 1 - Sidebar: Specialties */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
-        <div className="p-6 border-bottom border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-            <Stethoscope size={24} />
+      <aside className={cn(
+        "bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-2xl z-30 transition-all duration-300 overflow-hidden",
+        isSidebarOpen ? "w-52" : "w-0"
+      )}>
+        <div className="p-4 border-b border-slate-800 flex items-center gap-3 min-w-[208px]">
+          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/50 shrink-0">
+            <Stethoscope size={18} />
           </div>
-          <div>
-            <h1 className="font-bold text-lg leading-tight tracking-tight">LaudosPro</h1>
-            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Ultrassonografia</p>
+          <div className="overflow-hidden">
+            <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">LaudosPro</h1>
+            <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate">Ultrassonografia</p>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          <div className="flex items-center justify-between px-3 mb-2">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Especialidades</p>
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar min-w-[208px]">
+          <div className="flex items-center justify-between px-2 mb-2">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Especialidades</p>
             {isAdmin && (
               <button 
                 onClick={() => { setEditingItem(null); setShowAdminModal('specialty'); }}
-                className="p-1 hover:bg-slate-100 rounded text-blue-600 transition-colors"
+                className="p-1 hover:bg-slate-800 rounded text-blue-400 transition-colors"
               >
                 <Plus size={14} />
               </button>
@@ -459,8 +665,8 @@ export default function App() {
                 className={cn(
                   "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 flex items-center justify-between",
                   selectedSpecId === spec.id 
-                    ? "bg-blue-50 text-blue-700 font-semibold shadow-sm" 
-                    : "hover:bg-slate-50 text-slate-600"
+                    ? "bg-blue-600 text-white font-semibold shadow-lg shadow-blue-900/20" 
+                    : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
                 )}
               >
                 <span className="truncate">{spec.name}</span>
@@ -473,13 +679,13 @@ export default function App() {
                 <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setEditingItem(spec); setShowAdminModal('specialty'); }}
-                    className="p-1.5 bg-white shadow-sm border border-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
+                    className="p-1.5 bg-slate-800 shadow-sm border border-slate-700 rounded-lg text-slate-400 hover:text-blue-400"
                   >
                     <Settings size={12} />
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); deleteSpecialty(spec.id); }}
-                    className="p-1.5 bg-white shadow-sm border border-slate-100 rounded-lg text-slate-400 hover:text-red-600"
+                    className="p-1.5 bg-slate-800 shadow-sm border border-slate-700 rounded-lg text-slate-400 hover:text-red-400"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -489,12 +695,26 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-3 lg:p-4 border-t border-slate-800 flex flex-col gap-2 min-w-[192px] lg:min-w-[224px]">
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                if (window.confirm('Isso irá resetar todas as especialidades e máscaras para o padrão original. Deseja continuar?')) {
+                  localStorage.clear();
+                  window.location.reload();
+                }
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-900/20 text-red-400 hover:bg-red-900/30 transition-colors"
+            >
+              <Eraser size={16} />
+              Resetar para Padrões
+            </button>
+          )}
           <button 
             onClick={() => setIsAdmin(!isAdmin)}
             className={cn(
               "w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              isAdmin ? "bg-amber-100 text-amber-700" : "text-slate-500 hover:bg-slate-100"
+              isAdmin ? "bg-amber-900/20 text-amber-400 hover:bg-amber-900/30" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             )}
           >
             <Settings size={16} />
@@ -503,77 +723,107 @@ export default function App() {
         </div>
       </aside>
 
-      {/* 2 - Central Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-50">
-        {/* Top: Masks */}
-        <section className="h-1/2 flex flex-col border-b border-slate-200 overflow-hidden">
-          <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
+      {/* 2 - Central Area (Masks & Phrases) */}
+      <div className={cn(
+        "flex flex-col shrink-0 bg-slate-50 border-r border-slate-300 transition-all duration-300 overflow-hidden",
+        isCentralPanelOpen ? "w-[500px] xl:w-[580px]" : "w-0"
+      )}>
+        <div className="min-w-[500px] xl:min-w-[580px] flex-1 flex flex-col overflow-hidden">
+          {/* Top: Masks */}
+          <section className="h-[55%] flex flex-col border-b border-slate-300 overflow-hidden">
+          <div className="p-4 bg-slate-100 border-b border-slate-300 flex items-center justify-between shrink-0 shadow-sm z-10">
             <div className="flex items-center gap-2">
-              <FileText size={18} className="text-blue-600" />
-              <h2 className="font-bold text-slate-700">Máscaras de Laudo</h2>
+              <FileText size={18} className="text-blue-700" />
+              <h2 className="font-black text-base text-slate-900 uppercase tracking-tight">Máscaras de Laudo</h2>
             </div>
             {isAdmin && selectedSpecId && (
               <button 
                 onClick={() => { setEditingItem(null); setShowAdminModal('mask'); }}
-                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1"
+                className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-md"
               >
-                <Plus size={14} /> Nova Máscara
+                <Plus size={12} /> Nova
               </button>
             )}
           </div>
           
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-100">
             {!selectedSpecId ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-                <ChevronRight size={48} className="opacity-20 rotate-180" />
-                <p className="font-medium">Selecione uma especialidade para começar</p>
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <ChevronRight size={32} className="opacity-20 rotate-180" />
+                <p className="text-xs font-medium">Selecione uma especialidade</p>
               </div>
             ) : filteredMasks.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-                <FileText size={48} className="opacity-20" />
-                <p className="font-medium">Nenhuma máscara cadastrada</p>
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <FileText size={32} className="opacity-20" />
+                <p className="text-xs font-medium">Nenhuma máscara</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-5">
                 {filteredMasks.map(mask => (
                   <div key={mask.id} className="group relative">
                     <button
                       onClick={() => handleSelectMask(mask)}
                       className={cn(
-                        "w-full p-5 rounded-2xl border text-left transition-all duration-300 relative overflow-hidden",
+                        "w-full p-4 lg:p-6 rounded-2xl lg:rounded-3xl border text-left transition-all duration-300 relative overflow-hidden flex flex-col gap-2 lg:gap-4",
                         selectedMask?.id === mask.id
-                          ? "bg-white border-blue-500 shadow-xl shadow-blue-100 ring-1 ring-blue-500"
-                          : "bg-white border-slate-200 hover:border-blue-300 hover:shadow-lg hover:shadow-slate-200"
+                          ? "bg-white border-blue-500 shadow-xl shadow-blue-200 ring-2 ring-blue-500/10"
+                          : "bg-white border-slate-300 hover:border-blue-400 hover:shadow-2xl hover:shadow-slate-300/50 hover:-translate-y-1"
                       )}
                     >
-                      <div className="relative z-10">
+                      <div className="flex items-start justify-between gap-2 lg:gap-4">
+                        <div className={cn(
+                          "p-2 lg:p-3 rounded-xl lg:rounded-2xl transition-colors",
+                          selectedMask?.id === mask.id ? "bg-blue-50 text-blue-600" : "bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500"
+                        )}>
+                          <ClipboardList size={20} />
+                        </div>
+                        {mask.fields.length > 0 && (
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                            selectedMask?.id === mask.id ? "bg-blue-200 text-blue-800" : "bg-slate-200 text-slate-600"
+                          )}>
+                            {mask.fields.length} campos
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative z-10 flex-1">
                         <h3 className={cn(
-                          "font-bold mb-1 transition-colors",
-                          selectedMask?.id === mask.id ? "text-blue-700" : "text-slate-700"
+                          "font-bold text-sm lg:text-base mb-1 transition-colors leading-tight",
+                          selectedMask?.id === mask.id ? "text-blue-900" : "text-slate-800"
                         )}>{mask.name}</h3>
-                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                          {mask.baseContent}
+                        <p className="text-[11px] lg:text-xs text-slate-500 line-clamp-2 leading-relaxed font-medium opacity-80">
+                          {stripHtml(mask.baseContent)}
                         </p>
                       </div>
+
+                      <div className={cn(
+                        "flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest mt-2",
+                        selectedMask?.id === mask.id ? "text-blue-700" : "text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      )}>
+                        <span>{selectedMask?.id === mask.id ? "Selecionada" : "Clique para usar"}</span>
+                        <ChevronRight size={14} className={cn(selectedMask?.id === mask.id ? "animate-pulse" : "")} />
+                      </div>
+
                       {selectedMask?.id === mask.id && (
-                        <div className="absolute top-0 right-0 p-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                        </div>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
                       )}
                     </button>
                     {isAdmin && (
-                      <div className="absolute right-2 bottom-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                      <div className="absolute right-4 top-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all z-20 translate-x-2 group-hover:translate-x-0">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setEditingItem(mask); setShowAdminModal('mask'); }}
-                          className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
+                          className="p-2 bg-white shadow-xl border border-slate-100 rounded-xl text-slate-400 hover:text-blue-600 hover:scale-110 transition-all"
+                          title="Editar Máscara"
                         >
-                          <Settings size={12} />
+                          <Settings size={14} />
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); deleteMask(mask.id); }}
-                          className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-red-600"
+                          className="p-2 bg-white shadow-xl border border-slate-100 rounded-xl text-slate-400 hover:text-red-600 hover:scale-110 transition-all"
+                          title="Excluir Máscara"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     )}
@@ -585,90 +835,132 @@ export default function App() {
         </section>
 
         {/* Bottom: Phrases */}
-        <section className="h-1/2 flex flex-col overflow-hidden">
-          <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between shrink-0">
+        <section className="h-[45%] flex flex-col overflow-hidden">
+          <div className="p-4 bg-slate-100 border-b border-slate-300 flex items-center justify-between shrink-0 shadow-sm z-10">
             <div className="flex items-center gap-2">
-              <MessageSquare size={18} className="text-emerald-600" />
-              <h2 className="font-bold text-slate-700">Frases Rápidas (SmartPhrases)</h2>
+              <MessageSquare size={18} className="text-emerald-700" />
+              <h2 className="font-black text-base text-slate-900 uppercase tracking-tight">SmartPhrases</h2>
             </div>
             {isAdmin && selectedMask && (
               <button 
                 onClick={() => { setEditingItem(null); setShowAdminModal('phrase'); }}
-                className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                className="text-[10px] bg-emerald-600 text-white px-2 py-1 rounded-lg font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-md"
               >
-                <Plus size={14} /> Nova Frase
+                <Plus size={12} /> Nova
               </button>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-100">
             {selectedSpecId === '4' && (
-              <div className="mb-6">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Calculadoras</p>
-                <button
-                  onClick={() => setShowOradsModal(true)}
-                  className="w-full sm:w-auto text-left px-5 py-4 rounded-2xl transition-all duration-200 flex items-center gap-4 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 shadow-sm hover:shadow-md"
-                >
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-purple-600 shadow-sm">
-                    <Calculator size={20} />
-                  </div>
-                  <div>
-                    <span className="font-bold text-base block">Calculadora O-RADS</span>
-                    <span className="text-xs text-purple-500 font-medium">Avaliação de massas anexiais</span>
-                  </div>
-                </button>
+              <div className="mb-8 lg:mb-10">
+                <div className="flex items-center gap-2 mb-3 lg:mb-4">
+                  <div className="w-1 h-3 lg:h-4 bg-purple-500 rounded-full"></div>
+                  <p className="text-[9px] lg:text-[10px] font-bold text-slate-600 uppercase tracking-widest">Calculadoras Ginecológicas</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowOradsModal(true)}
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-purple-400 hover:-translate-y-1 overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm relative z-10 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300">
+                      <Calculator size={24} />
+                    </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">O-RADS</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Avaliação padronizada de massas anexiais</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-purple-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
+                    </div>
+                  </button>
+                </div>
               </div>
             )}
 
             {selectedSpecId === '5' && (
-              <div className="mb-6">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ferramentas e Calculadoras</p>
-                <div className="flex flex-col gap-3">
+              <div className="mb-10">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Calculadoras Obstétricas</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     onClick={() => setShowCalcBarcelona(true)}
-                    className="w-full text-left p-4 rounded-2xl transition-all duration-200 flex flex-col gap-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 shadow-sm hover:shadow-md group"
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-blue-400 hover:-translate-y-1 overflow-hidden"
                   >
-                    <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-gray-300 shadow-sm group-hover:scale-105 transition-transform">
-                      <Calculator size={24} />
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm relative z-10 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                      <Activity size={24} />
                     </div>
-                    <div>
-                      <span className="font-bold text-base block mb-1">Calculadora Barcelona</span>
-                      <span className="text-xs text-gray-400 font-medium block mb-3">(Biometria e Doppler)</span>
-                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-slate-900 px-2 py-1 rounded-md uppercase tracking-wider">
-                        ATALHO <ChevronRight size={12} />
-                      </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">Barcelona</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Crescimento fetal e estudo Doppler</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
                     </div>
                   </button>
 
                   <button
                     onClick={() => setShowCalcIG(true)}
-                    className="w-full text-left p-4 rounded-2xl transition-all duration-200 flex flex-col gap-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 shadow-sm hover:shadow-md group"
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-blue-400 hover:-translate-y-1 overflow-hidden"
                   >
-                    <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-gray-300 shadow-sm group-hover:scale-105 transition-transform">
-                      <Calculator size={24} />
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm relative z-10 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                      <Calendar size={24} />
                     </div>
-                    <div>
-                      <span className="font-bold text-base block mb-1">Calculadora de Idade Gestacional e DPP</span>
-                      <span className="text-xs text-gray-400 font-medium block mb-3"></span>
-                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-slate-900 px-2 py-1 rounded-md uppercase tracking-wider">
-                        ATALHO <ChevronRight size={12} />
-                      </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">Idade Gestacional</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Cálculo de IG por DUM ou USG</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
                     </div>
                   </button>
 
                   <button
                     onClick={() => setShowCalcBishop(true)}
-                    className="w-full text-left p-4 rounded-2xl transition-all duration-200 flex flex-col gap-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 shadow-sm hover:shadow-md group"
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-blue-400 hover:-translate-y-1 overflow-hidden"
                   >
-                    <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-gray-300 shadow-sm group-hover:scale-105 transition-transform">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm relative z-10 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                      <BookOpen size={24} />
+                    </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">Índice de Bishop</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Avaliação cervical para indução</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedSpecId === '6' && (
+              <div className="mb-10">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 bg-orange-500 rounded-full"></div>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Calculadoras de Mama</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowCalcBiradsMama(true)}
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-orange-400 hover:-translate-y-1 overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm relative z-10 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300">
                       <Calculator size={24} />
                     </div>
-                    <div>
-                      <span className="font-bold text-base block mb-1">Índice de Bishop</span>
-                      <span className="text-xs text-gray-400 font-medium block mb-3">(Avaliação Cervical)</span>
-                      <div className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 bg-slate-900 px-2 py-1 rounded-md uppercase tracking-wider">
-                        ATALHO <ChevronRight size={12} />
-                      </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">BI-RADS® Mama</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Assistente de descrição e classificação</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
                     </div>
                   </button>
                 </div>
@@ -676,24 +968,24 @@ export default function App() {
             )}
 
             {!selectedMask ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-                <MessageSquare size={48} className="opacity-20" />
-                <p className="font-medium">Selecione uma máscara para ver as frases</p>
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <MessageSquare size={32} className="opacity-20" />
+                <p className="text-xs font-medium">Selecione uma máscara</p>
               </div>
             ) : currentPhrases.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-                <MessageSquare size={48} className="opacity-20" />
-                <p className="font-medium">Nenhuma frase cadastrada para esta máscara</p>
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <MessageSquare size={32} className="opacity-20" />
+                <p className="text-xs font-medium">Nenhuma frase cadastrada</p>
               </div>
             ) : (
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Frases Salvas</p>
-                <div className="flex flex-wrap gap-3">
+                <p className="text-[9px] lg:text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 lg:mb-3">Frases Salvas</p>
+                <div className="flex flex-wrap gap-2 lg:gap-3">
                   {currentPhrases.map(phrase => (
                   <div key={phrase.id} className="group relative">
                     <button
                       onClick={() => insertAtCursor(phrase.text + ' ')}
-                      className="px-5 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:border-emerald-400 hover:text-emerald-700 hover:shadow-md transition-all active:scale-95 text-left max-w-xs"
+                      className="px-3 lg:px-5 py-2 lg:py-3 bg-white border border-slate-300 rounded-lg lg:rounded-xl text-[11px] lg:text-sm font-medium text-slate-700 hover:border-emerald-500 hover:text-emerald-800 hover:shadow-lg transition-all active:scale-95 text-left max-w-[180px] lg:max-w-xs shadow-sm truncate"
                     >
                       {phrase.text}
                     </button>
@@ -720,78 +1012,217 @@ export default function App() {
             )}
           </div>
         </section>
-      </main>
+      </div>
+    </div>
 
-      {/* 3 - Editor Area */}
-      <section className="w-[40%] bg-white border-l border-slate-200 flex flex-col shrink-0 shadow-2xl z-10">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white">
-              <FileText size={16} />
+      {/* 3 - Editor Area (Google Docs Style) */}
+      <main className="flex-1 bg-slate-200 flex flex-col min-w-0 overflow-hidden relative border-l border-slate-300">
+        {/* Toolbar */}
+        <div className="sticky top-0 z-20 bg-white border-b border-slate-300 px-4 py-2 flex flex-col gap-2 shadow-sm shrink-0">
+          {/* Row 1: Primary Actions & View Controls */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button 
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider",
+                    isSidebarOpen ? "bg-white text-blue-600 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-700"
+                  )} 
+                >
+                  <Stethoscope size={14} />
+                  Menu
+                </button>
+                <button 
+                  onClick={() => setIsCentralPanelOpen(!isCentralPanelOpen)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider",
+                    isCentralPanelOpen ? "bg-white text-blue-600 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-700"
+                  )} 
+                >
+                  <FileText size={14} />
+                  Máscaras
+                </button>
+              </div>
+
+              <div className="h-6 w-px bg-slate-300 mx-2" />
+
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={newReport}
+                  className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-blue-200"
+                >
+                  <Plus size={16} /> Novo Laudo
+                </button>
+                <button 
+                  onClick={clearEditor}
+                  className="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-amber-200"
+                >
+                  <Eraser size={16} /> Limpar
+                </button>
+              </div>
             </div>
-            <h2 className="font-bold text-slate-800">Editor de Laudo</h2>
+
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Zoom</span>
+                <select 
+                  value={editorZoom}
+                  onChange={(e) => setEditorZoom(parseFloat(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 w-24"
+                >
+                  <option value="0">Ajustar</option>
+                  <option value="0.5">50%</option>
+                  <option value="0.6">60%</option>
+                  <option value="0.7">70%</option>
+                  <option value="0.8">80%</option>
+                  <option value="0.9">90%</option>
+                  <option value="1.0">100%</option>
+                </select>
+              </div>
+
+              <button 
+                onClick={copyToClipboard}
+                className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
+              >
+                <Copy size={18} /> Copiar Laudo
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={() => document.execCommand('bold')}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-slate-500 transition-all" title="Negrito">
-              <Bold size={18} />
-            </button>
-            <button 
-              onClick={() => document.execCommand('italic')}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-slate-500 transition-all" title="Itálico">
-              <Italic size={18} />
-            </button>
-            <button 
-              onClick={() => document.execCommand('insertUnorderedList')}
-              className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-slate-500 transition-all" title="Lista">
-              <List size={18} />
-            </button>
+
+          {/* Row 2: Formatting Tools */}
+          <div className="flex items-center gap-4 py-1 border-t border-slate-100">
+            <div className="flex items-center gap-1 pr-4 border-r border-slate-200">
+              <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                <button onClick={() => document.execCommand('bold')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><Bold size={16} /></button>
+                <button onClick={() => document.execCommand('italic')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><Italic size={16} /></button>
+                <button onClick={() => document.execCommand('underline')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><span className="font-serif underline font-bold text-sm leading-none">U</span></button>
+              </div>
+              
+              <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200 ml-2">
+                <button onClick={() => document.execCommand('justifyLeft')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2zm0 4h12v2H3v-2zm0 4h18v2H3v-2z"/></svg></button>
+                <button onClick={() => document.execCommand('justifyCenter')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h18v2H3V3zm3 4h12v2H6V7zm-3 4h18v2H3v-2zm3 4h12v2H6v-2zm-3 4h18v2H3v-2z"/></svg></button>
+                <button onClick={() => document.execCommand('justifyRight')} className="p-1.5 hover:bg-white hover:shadow-sm rounded text-slate-600 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h18v2H3V3zm6 4h12v2H9V7zm-6 4h18v2H3v-2zm6 4h12v2H9v-2zm-6 4h18v2H3v-2z"/></svg></button>
+              </div>
+
+              <button onClick={() => document.execCommand('insertUnorderedList')} className="p-1.5 bg-slate-100 border border-slate-200 hover:bg-white hover:shadow-sm rounded-lg text-slate-600 transition-all ml-2"><List size={16} /></button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Fonte</span>
+                <select 
+                  value={currentFontFamily}
+                  onChange={(e) => { document.execCommand('fontName', false, e.target.value); setCurrentFontFamily(e.target.value); }}
+                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-[11px] font-bold text-slate-700 outline-none w-32"
+                >
+                  <option value="Arial">Arial</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Calibri">Calibri</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Tam.</span>
+                <select 
+                  value={currentFontSize}
+                  onChange={(e) => applyFontSize(e.target.value + 'pt')}
+                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-[11px] font-bold text-slate-700 outline-none w-14"
+                >
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                  <option value="14">14</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Esp.</span>
+                <select 
+                  value={currentLineHeight}
+                  onChange={(e) => applyLineHeight(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-[11px] font-bold text-slate-700 outline-none w-14"
+                >
+                  <option value="1.0">1.0</option>
+                  <option value="1.15">1.15</option>
+                  <option value="1.5">1.5</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 p-8 overflow-y-auto bg-white">
+        {/* Page Container */}
+        <div className="flex-1 overflow-auto p-4 lg:p-8 flex flex-col items-center bg-slate-200 shadow-inner custom-scrollbar editor-scroll-container">
           <div 
-            ref={editorRef}
-            contentEditable
-            onBlur={saveSelection}
-            onKeyUp={saveSelection}
-            onMouseUp={saveSelection}
-            style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt' }}
-            className="w-full h-full outline-none max-w-none leading-relaxed min-h-[500px]"
-            data-placeholder="Comece a digitar ou selecione uma máscara..."
-          />
+            style={{ 
+              width: `${21 * (editorZoom || 1)}cm`, 
+              height: `${Math.max(1, pageCount) * 29.7 * (editorZoom || 1) + 5}cm`,
+              transition: 'all 0.3s ease'
+            }}
+            className="relative flex flex-col items-center"
+          >
+            <div 
+              className="origin-top transition-all duration-300 flex flex-col items-center"
+              style={{ 
+                transform: `scale(${editorZoom || 1})`,
+                width: '21cm'
+              }}
+            >
+              <EditorRuler />
+              
+              {/* The Editor Sheet */}
+              <div 
+                className="bg-white shadow-2xl w-[21cm] relative flex flex-col border-x border-slate-300"
+                style={{ 
+                  minHeight: `${Math.max(1, pageCount) * 29.7}cm`,
+                  // Visual page break line every 29.7cm
+                  backgroundImage: 'linear-gradient(to bottom, transparent 29.68cm, #cbd5e1 29.68cm, #cbd5e1 29.72cm, transparent 29.72cm)',
+                  backgroundSize: '100% 29.72cm',
+                  transition: 'min-height 0.3s ease'
+                }}
+                onClick={() => editorRef.current?.focus()}
+              >
+                <div 
+                  ref={editorRef}
+                  contentEditable
+                  onBlur={saveSelection}
+                  onKeyUp={saveSelection}
+                  onMouseUp={saveSelection}
+                  style={{ 
+                    fontFamily: 'Arial, sans-serif', 
+                    fontSize: '11pt',
+                    color: '#202124',
+                    lineHeight: '1.6',
+                    padding: '2.5cm',
+                    minHeight: '29.7cm'
+                  }}
+                  className="w-full h-full outline-none max-w-none break-words bg-transparent"
+                  data-placeholder="Comece a digitar ou selecione uma máscara..."
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Bottom spacing */}
+          <div className="h-20 shrink-0" />
         </div>
 
-        <div className="p-6 border-t border-slate-100 bg-slate-50/80 flex flex-col gap-4">
-          <div className="grid grid-cols-3 gap-3">
-            <button 
-              onClick={newReport}
-              className="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              <Plus size={18} className="text-blue-600" />
-              Novo
-            </button>
-            <button 
-              onClick={clearEditor}
-              className="flex items-center justify-center gap-2 py-3 px-4 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              <Eraser size={18} className="text-amber-600" />
-              Limpar
-            </button>
-            <button 
-              onClick={copyToClipboard}
-              className="flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 rounded-xl text-sm font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95 col-span-1"
-            >
-              <Copy size={18} />
-              Copiar
-            </button>
+        {/* Floating Status */}
+        <div className="absolute bottom-6 right-6 z-30 flex flex-col items-end gap-2">
+          <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-full border border-slate-200 shadow-lg flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-slate-500 border-r border-slate-200 pr-3">
+              <FileText size={14} className="text-blue-500" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Página {pageCount}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pronto para Word / PACS</span>
+            </div>
           </div>
-          <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest">
-            Pronto para colar no Word ou PACS
-          </p>
         </div>
-      </section>
+      </main>
 
       {/* Field Modal */}
       <AnimatePresence>
@@ -1341,6 +1772,29 @@ export default function App() {
             insertAtCursor(content + '<br><br>');
             setShowCalcBishop(false);
           }} 
+        />
+      )}
+
+      {showCalcBiradsMama && (
+        <CalculadoraBiradsMama 
+          onClose={() => setShowCalcBiradsMama(false)}
+          onInsert={(text, birads, side, conclusao, recomendacao) => {
+            if (showFieldModal && selectedMask?.id === 'm9') {
+              const fieldKey = side === 'dir' ? 'achados_dir' : 'achados_esq';
+              setFieldValues(prev => ({
+                ...prev,
+                [fieldKey]: (prev[fieldKey] || '') + (prev[fieldKey] ? '\n' : '') + text,
+                'birads': birads,
+                'conclusao': (prev['conclusao'] || '') + (prev['conclusao'] ? '\n' : '') + conclusao,
+                'recomendacao': (prev['recomendacao'] || '') + (prev['recomendacao'] ? '\n' : '') + recomendacao
+              }));
+            } else {
+              // Direct insertion into editor if no field modal or different mask
+              const content = `<br><b>Achados (${side === 'dir' ? 'Mama Direita' : 'Mama Esquerda'}):</b><br>${text.replace(/\n/g, '<br>')}<br><b>Conclusão:</b> ${conclusao}<br><b>BI-RADS:</b> ${birads}<br><b>Recomendação:</b> ${recomendacao}<br><br>`;
+              insertAtCursor(content);
+            }
+            setShowCalcBiradsMama(false);
+          }}
         />
       )}
     </div>

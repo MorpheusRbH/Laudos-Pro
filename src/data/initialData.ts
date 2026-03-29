@@ -111,6 +111,59 @@ export const INITIAL_MASKS: Mask[] = [
       { id: 'perc_rcp', label: 'Percentil RCP', type: 'number', unit: '' },
       { id: 'conclusao_doppler', label: 'Conclusão Doppler', type: 'textarea', unit: '' }
     ]
+  },
+  {
+    id: 'm7',
+    name: 'US Rins e Vias Urinárias (Sem Medidas)',
+    specialtyId: '3',
+    baseContent: '<b>ULTRASSONOGRAFIA RENAL E DAS VIAS URINÁRIAS</b><br><br><b>Rim direito:</b><br>Morfologia, contornos, dimensões e topografia habituais.<br>Parênquima com relação corticomedular preservada.<br>Sistema pielocalicial compacto.<br>Não visibilizado imagens compatíveis com cálculos no sistema pielocalicial.<br><br><b>Rim esquerdo:</b><br>Morfologia, contornos, dimensões e topografia habituais.<br>Parênquima com relação corticomedular preservada.<br>Sistema pielocalicial compacto.<br>Não visibilizado imagens compatíveis com cálculos no sistema pielocalicial.<br><br><b>Bexiga urinária:</b><br>Normodistendida, com conteúdo anecóide e não apresentando cálculos.<br>Parede vesical regular e de espessura normal.<br><br><b>IMPRESSÃO DIAGNÓSTICA:</b><br>Achados ultrassonográficos dentro dos padrões da normalidade.<br><br><b>Obs.:</b> Cálculos renais menores que 5 mm podem não ser identificados devido a limitação inerente do método ecográfico.',
+    fields: []
+  },
+  {
+    id: 'm8',
+    name: 'US Rins e Vias Urinárias (Com Medidas)',
+    specialtyId: '3',
+    baseContent: '<b>ULTRASSONOGRAFIA RENAL E DAS VIAS URINÁRIAS</b><br><br><b>Rim direito:</b><br>Morfologia, contornos e topografia habituais.<br>Dimensões: {{rd_c}} x {{rd_l}} cm. Espessura de parênquima: {{rd_par}} cm.<br>Parênquima com espessura e diferenciação corticomedular preservada.<br>Sistema pielocalicial compacto.<br>Não visibilizado imagens compatíveis com cálculos no sistema pielocalicial.<br><br><b>Rim esquerdo:</b><br>Morfologia, contornos e topografia habituais.<br>Dimensões: {{re_c}} x {{re_l}} cm. Espessura de parênquima: {{re_par}} cm.<br>Parênquima com espessura e diferenciação corticomedular preservada.<br>Sistema pielocalicial compacto.<br>Não visibilizado imagens compatíveis com cálculos no sistema pielocalicial.<br><br><b>Bexiga urinária:</b><br>Normodistendida, com conteúdo anecóide e não apresentando cálculos.<br>Parede vesical regular e de espessura normal.<br><br><b>IMPRESSÃO DIAGNÓSTICA:</b><br>- Achados ultrassonográficos dentro dos padrões da normalidade.<br><br><b>Nota:</b> Exame realizado em caráter de urgência.<br><b>Obs.:</b> Cálculos renais menores que 5 mm podem não ser identificados devido a limitação inerente do método ecográfico.',
+    fields: [
+      { id: 'rd_c', label: 'RD Comprimento', type: 'number', unit: 'cm' },
+      { id: 'rd_l', label: 'RD Largura', type: 'number', unit: 'cm' },
+      { id: 'rd_par', label: 'Parênquima RD', type: 'number', unit: 'cm' },
+      { id: 're_c', label: 'RE Comprimento', type: 'number', unit: 'cm' },
+      { id: 're_l', label: 'RE Largura', type: 'number', unit: 'cm' },
+      { id: 're_par', label: 'Parênquima RE', type: 'number', unit: 'cm' }
+    ]
+  },
+  {
+    id: 'm9',
+    name: 'US Mama (BI-RADS)',
+    specialtyId: '6',
+    baseContent: '<b>ULTRASSONOGRAFIA DE MAMAS</b><br><br><b>Técnica:</b><br>Exame ultrassonográfico realizado com equipamento de alta resolução, transdutor linear de alta frequência, com avaliação das mamas e regiões axilares bilaterais.<br><br><b>Mama direita:</b><br>Pele e tecido subcutâneo de espessura normais.<br>Composição mamária {{composicao_dir}}.<br>Parênquima mamário de ecotextura {{eco_dir}}, de aspecto habitual.<br>{{achados_dir}}<br>Região axilar direita {{axila_dir}}.<br><br><b>Mama esquerda:</b><br>Pele e tecido subcutâneo de espessura normais.<br>Composição mamária {{composicao_esq}}.<br>Parênquima mamário de ecotextura {{eco_esq}}, de aspecto habitual.<br>{{achados_esq}}<br>Região axilar esquerda {{axila_esq}}.<br><br><b>CONCLUSÃO:</b><br>{{conclusao}}<br><br><b>BI-RADS:</b><br>{{birads}}<br><br><b>RECOMENDAÇÃO:</b><br>{{recomendacao}}<br><br><b>Nota:</b><br>{{nota}}<br><br><b>Obs:</b><br>{{obs}}',
+    fields: [
+      { id: 'composicao_dir', label: 'Comp. Mamária MD', type: 'select', unit: '', options: ['predominantemente adiposa', 'com áreas esparsas de tecido fibroglandular', 'heterogênea', 'densa'] },
+      { id: 'eco_dir', label: 'Ecotextura MD', type: 'select', unit: '', options: ['homogênea', 'heterogênea'] },
+      { id: 'achados_dir', label: 'Achados MD', type: 'textarea', unit: '' },
+      { id: 'axila_dir', label: 'Axila Direita', type: 'textarea', unit: '' },
+      { id: 'composicao_esq', label: 'Comp. Mamária ME', type: 'select', unit: '', options: ['predominantemente adiposa', 'com áreas esparsas de tecido fibroglandular', 'heterogênea', 'densa'] },
+      { id: 'eco_esq', label: 'Ecotextura ME', type: 'select', unit: '', options: ['homogênea', 'heterogênea'] },
+      { id: 'achados_esq', label: 'Achados ME', type: 'textarea', unit: '' },
+      { id: 'axila_esq', label: 'Axila Esquerda', type: 'textarea', unit: '' },
+      { id: 'conclusao', label: 'Conclusão', type: 'textarea', unit: '' },
+      { id: 'birads', label: 'BI-RADS', type: 'select', unit: '', options: [
+        'Incompleto (Categoria 0)',
+        'Ausência de achados patológicos (Categoria I)',
+        'Achados benignos (Categoria II)',
+        'Achados provavelmente benignos (Categoria III) — controle ultrassonográfico em 6 meses',
+        'Achados suspeitos (Categoria IV)',
+        'Achados suspeitos (Categoria IV-A)',
+        'Achados suspeitos (Categoria IV-B)',
+        'Achados suspeitos (Categoria IV-C)',
+        'Achados altamente suspeitos de malignidade (Categoria V)',
+        'Malignidade comprovada (Categoria VI)'
+      ] },
+      { id: 'recomendacao', label: 'Recomendação', type: 'textarea', unit: '' },
+      { id: 'nota', label: 'Nota', type: 'text', unit: '' },
+      { id: 'obs', label: 'Obs', type: 'textarea', unit: '' }
+    ]
   }
 ];
 

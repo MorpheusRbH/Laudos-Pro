@@ -1,5 +1,5 @@
 {
   "name": "LaudosPro",
   "description": "Sistema profissional para criação rápida de laudos estruturados de ultrassonografia.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone"]
 }

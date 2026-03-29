@@ -1,1 +1,82 @@
 @import "tailwindcss";
+
+@layer base {
+  [contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: #6b7280;
+    cursor: text;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f4147;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4e5058;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Google Docs Ruler Styles */
+.ruler-tick {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 4px;
+}
+
+.ruler-tick::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 8px;
+  background-color: #4e5058;
+}
+
+.ruler-tick-small::after {
+  height: 4px;
+  background-color: #3f4147;
+}
+
+/* Page Shadow for Google Docs feel */
+.page-shadow {
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Editor Focus Style */
+[contenteditable]:focus {
+  outline: none;
+}
+
+/* Font Size Mappings for execCommand */
+font[size="1"] { font-size: 8pt; }
+font[size="2"] { font-size: 9pt; }
+font[size="3"] { font-size: 10pt; }
+font[size="4"] { font-size: 11pt; }
+font[size="5"] { font-size: 12pt; }
+
+/* Font Family Classes */
+.font-arial { font-family: Arial, sans-serif !important; }
+.font-times { font-family: "Times New Roman", Times, serif !important; }

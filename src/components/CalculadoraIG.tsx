@@ -137,71 +137,71 @@ export function CalculadoraIG({ onClose, onInsert }: CalculadoraIGProps) {
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {activeTab === 'dum' && (
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">Data da DUM</label>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Data da DUM</label>
               <input 
                 type="date" 
                 value={dum}
                 onChange={(e) => setDum(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-700"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-700"
               />
             </div>
           )}
 
           {activeTab === 'usg' && (
-            <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">Data da USG</label>
+            <div className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Data da USG</label>
                 <input 
                   type="date" 
                   value={dataUsg}
                   onChange={(e) => setDataUsg(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-700"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-700"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">Semanas na USG</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Semanas na USG</label>
                   <input 
                     type="number" 
                     value={semanasUsg}
                     onChange={(e) => setSemanasUsg(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-700"
-                    placeholder="Ex: 8"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    placeholder="0"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2 ml-1">Dias na USG</label>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Dias na USG</label>
                   <input 
                     type="number" 
                     value={diasUsg}
                     onChange={(e) => setDiasUsg(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-700"
-                    placeholder="Ex: 2"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-700"
+                    placeholder="0"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 text-center">
-            <div className="mb-4">
-              <p className="text-xs font-bold text-blue-600/70 uppercase tracking-wider mb-1">Idade Gestacional Atual</p>
+          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 text-center space-y-6">
+            <div>
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2">Idade Gestacional Atual</p>
               <div className="flex items-baseline justify-center gap-2">
-                <span className="text-4xl font-black text-blue-900">{igSemanas !== null ? igSemanas : '0'}</span>
+                <span className="text-5xl font-black text-blue-900">{igSemanas !== null ? igSemanas : '0'}</span>
                 <span className="text-sm font-bold text-blue-700">sem</span>
-                <span className="text-4xl font-black text-blue-900">{igDias !== null ? igDias : '0'}</span>
+                <span className="text-5xl font-black text-blue-900">{igDias !== null ? igDias : '0'}</span>
                 <span className="text-sm font-bold text-blue-700">dias</span>
               </div>
             </div>
             
-            <div className="w-full h-px bg-blue-200/50 mb-4"></div>
+            <div className="w-full h-px bg-blue-200/50"></div>
             
             <div>
-              <p className="text-xs font-bold text-blue-600/70 uppercase tracking-wider mb-1">Data Provável do Parto (DPP)</p>
-              <p className="text-xl font-bold text-blue-900">{dpp || '-'}</p>
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Data Provável do Parto (DPP)</p>
+              <p className="text-2xl font-black text-blue-900">{dpp || '-- / -- / --'}</p>
             </div>
           </div>
         </div>
