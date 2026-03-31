@@ -120,26 +120,618 @@
     // nesses casos não queremos forçar maiúscula na palavra seguinte.
     const ABBREV_PATTERN = /\b(cm|mm|ml|kg|mg|bpm|hz|db)\s*\.$/i;
 
+    // ── FILTRO DE PALAVRÕES ──────────────────────────────────────────────────
+    const profanityFilter = {
+        "vai tomar no cu": "",
+        "vai se foder": "",
+        "que se foda": "",
+        "filho da puta": "",
+        "puta que pariu": "",
+        "puta merda": "",
+        "me fode": "",
+        "foda-se": "",
+        "pornografia": "",
+        "pornô": "",
+        "putaria": "",
+        "safadeza": "",
+        "safado": "",
+        "safada": "",
+        "arrombado": "",
+        "arrombada": "",
+        "desgraçado": "",
+        "desgraçada": "",
+        "desgraça": "",
+        "retardado": "",
+        "imbecil": "",
+        "viadagem": "",
+        "viado": "",
+        "xoxota": "",
+        "piroca": "",
+        "fodase": "",
+        "caralho": "",
+        "cacete": "",
+        "cuzão": "",
+        "buceta": "",
+        "bosta": "",
+        "merda": "",
+        "porra": "",
+        "foda": "",
+        "puta": "",
+        "cu": "",
+    };
+
+    function applyProfanityFilter(text) {
+        Object.entries(profanityFilter).forEach(([word, replacement]) => {
+            const regex = new RegExp(
+                word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'),
+                'gi'
+            );
+            text = text.replace(regex, replacement);
+        });
+        return text.replace(/\s{2,}/g, ' ').trim();
+    }
+
+    // ── DICIONÁRIO MÉDICO RADIOLÓGICO ──────────────────────────────────────────
+    const medicalDictionary = {
+
+        // ── PREFIXOS GREGOS ──────────────────────────────────────────
+        "hiper ecogênico": "hiperecogênico",
+        "hiper ecogenico": "hiperecogênico",
+        "hiperecogenico": "hiperecogênico",
+        "hipo ecogênico": "hipoecogênico",
+        "hipo ecogenico": "hipoecogênico",
+        "hipoecogenico": "hipoecogênico",
+        "iso ecogênico": "isoecogênico",
+        "eco genicidade": "ecogenicidade",
+        "eco gênico": "ecogênico",
+        "an ecóico": "anecóico",
+        "an ecoico": "anecóico",
+        "hiper denso": "hiperdenso",
+        "hipo denso": "hipodenso",
+        "hiper intenso": "hiperintenso",
+        "hipo intenso": "hipointenso",
+        "hiper vascular": "hipervascular",
+        "hipo vascular": "hipovascular",
+        "hiper trofia": "hipertrofia",
+        "hipo trofia": "hipotrofia",
+        "hiper plasia": "hiperplasia",
+        "hipo plasia": "hipoplasia",
+        "hiper atenuação": "hiperatenuação",
+        "hipo atenuação": "hipoatenuação",
+        "hiper insuflação": "hiperinsuflação",
+        "hiper pneumatização": "hiperpneumatização",
+        "hiper celular": "hipercelular",
+
+        // ── ULTRASSOM GERAL ──────────────────────────────────────────
+        "eco estrutura": "ecoestrutura",
+        "eco textura": "ecotextura",
+        "sombra acústica posterior": "sombra acústica posterior",
+        "reforço acústico posterior": "reforço acústico posterior",
+        "reforço acústico": "reforço acústico posterior",
+        "imagem nodular": "imagem nodular",
+        "imagem cística": "imagem cística",
+        "imagem sólida": "imagem sólida",
+        "imagem sólido cística": "imagem sólido-cística",
+        "contornos regulares": "contornos regulares",
+        "contornos irregulares": "contornos irregulares",
+        "limites nítidos": "limites nítidos",
+        "limites mal definidos": "limites mal definidos",
+        "dentro dos limites da normalidade": "dentro dos limites da normalidade",
+        "sem alterações significativas": "sem alterações significativas",
+        "transdutor linear": "transdutor linear",
+        "transdutor convexo": "transdutor convexo",
+        "doppler colorido": "Doppler colorido",
+        "doppler espectral": "Doppler espectral",
+        "power doppler": "Power Doppler",
+        "doppler": "Doppler",
+
+        // ── ABDOME / FÍGADO ──────────────────────────────────────────
+        "esteatose hepática": "esteatose hepática",
+        "esteatose leve": "esteatose leve",
+        "esteatose moderada": "esteatose moderada",
+        "esteatose acentuada": "esteatose acentuada",
+        "hepato megalia": "hepatomegalia",
+        "hepatomegalia": "hepatomegalia",
+        "parênquima hepático": "parênquima hepático",
+        "lobo hepático direito": "lobo hepático direito",
+        "lobo hepático esquerdo": "lobo hepático esquerdo",
+        "vias biliares intra hepáticas": "vias biliares intra-hepáticas",
+        "vias biliares extra hepáticas": "vias biliares extra-hepáticas",
+        "ducto colédoco": "ducto colédoco",
+        "colédoco litíase": "coledocolitíase",
+        "coledoco litiase": "coledocolitíase",
+        "cole litíase": "colelitíase",
+        "cole cistite": "colecistite",
+        "carcinoma hepato celular": "carcinoma hepatocelular",
+        "lirads": "LI-RADS",
+        "li rads": "LI-RADS",
+
+        // ── VESÍCULA ─────────────────────────────────────────────────
+        "vesícula biliar": "vesícula biliar",
+        "vesícula distendida": "vesícula distendida",
+        "vesícula contraída": "vesícula contraída",
+        "cálculo vesicular": "cálculo vesicular",
+        "cálculos vesiculares": "cálculos vesiculares",
+        "lama biliar": "lama biliar",
+        "barro biliar": "barro biliar",
+        "pólipo vesicular": "pólipo vesicular",
+
+        // ── PÂNCREAS ─────────────────────────────────────────────────
+        "ducto pancreático": "ducto pancreático",
+        "ducto de wirsung": "ducto de Wirsung",
+        "wirsung": "Wirsung",
+        "parênquima pancreático": "parênquima pancreático",
+        "pancreatite aguda": "pancreatite aguda",
+        "pancreatite crônica": "pancreatite crônica",
+
+        // ── BAÇO ─────────────────────────────────────────────────────
+        "espleno megalia": "esplenomegalia",
+        "esplenomegalia": "esplenomegalia",
+        "parênquima esplênico": "parênquima esplênico",
+
+        // ── RIM / TRATO URINÁRIO ─────────────────────────────────────
+        "parênquima renal": "parênquima renal",
+        "cortical renal": "cortical renal",
+        "relação córtico medular": "relação córtico-medular",
+        "pelve renal": "pelve renal",
+        "seio renal": "seio renal",
+        "nefroli tiase": "nefrolitíase",
+        "litíase renal": "litíase renal",
+        "hidro nefrose": "hidronefrose",
+        "hidronefrose leve": "hidronefrose leve",
+        "hidronefrose moderada": "hidronefrose moderada",
+        "hidronefrose acentuada": "hidronefrose acentuada",
+        "pielo nefrite": "pielonefrite",
+        "ureter hidro distendido": "ureter hidrodistendido",
+        "cisto renal simples": "cisto renal simples",
+        "angio miolipoma": "angiomiolipoma",
+        "bosniak": "Bosniak",
+
+        // ── MAMA ─────────────────────────────────────────────────────
+        "birads": "BIRADS",
+        "bi rads": "BIRADS",
+        "parênquima mamário": "parênquima mamário",
+        "tecido fibro glandular": "tecido fibroglandular",
+        "micro calcificações": "microcalcificações",
+        "micro calcificação": "microcalcificação",
+        "nódulo sólido cístico": "nódulo sólido-cístico",
+        "assimetria focal": "assimetria focal",
+        "linfonodo axilar": "linfonodo axilar",
+
+        // ── PRÓSTATA ─────────────────────────────────────────────────
+        "pirads": "PI-RADS",
+        "pi rads": "PI-RADS",
+        "hiperplasia próstatica": "hiperplasia prostática",
+        "hiperplasia prostática benigna": "hiperplasia prostática benigna",
+        "zona periférica": "zona periférica",
+        "zona transicional": "zona transicional",
+        "vesícula seminal": "vesícula seminal",
+        "vesículas seminais": "vesículas seminais",
+
+        // ── GINECOLÓGICO ─────────────────────────────────────────────
+        "mio ma": "mioma",
+        "mio mas": "miomas",
+        "mioma uterino": "mioma uterino",
+        "endo metrioma": "endometrioma",
+        "endo metriose": "endometriose",
+        "ovários poli císticos": "ovários policísticos",
+        "síndrome dos ovários policísticos": "síndrome dos ovários policísticos",
+        "hidros salpinge": "hidrossalpinge",
+        "fundo de saco de douglas": "fundo de saco de Douglas",
+        "útero antefletido": "útero anteversofletido",
+        "útero retrofletido": "útero retroversofletido",
+        "eco endometrial": "eco endometrial",
+        "espessamento endometrial": "espessamento endometrial",
+        "região adnexal": "região anexial",
+        "líquido livre em fundo de saco": "líquido livre em fundo de saco",
+        "útero em avf": "útero em AVF",
+        "útero em rvf": "útero em RVF",
+        "cisto de naboth": "cisto de Naboth",
+        "cistos de naboth": "cistos de Naboth",
+        "cisto folicular": "cisto folicular",
+        "cisto de corpo lúteo": "cisto de corpo lúteo",
+        "cisto hemorrágico": "cisto hemorrágico",
+        "teratoma cístico": "teratoma cístico",
+        "cisto dermóide": "cisto dermoide",
+        "cisto dermoide": "cisto dermoide",
+        "torção ovariana": "torção ovariana",
+        "doença inflamatória pélvica": "doença inflamatória pélvica",
+        "dip": "DIP",
+        "abscesso tubo ovariano": "abscesso tubo-ovariano",
+        "adenomiose": "adenomiose",
+        "pólipo endometrial": "pólipo endometrial",
+        "sinéquia uterina": "sinéquia uterina",
+        "dispositivo intrauterino": "dispositivo intrauterino",
+        "diu": "DIU",
+        "diu de cobre": "DIU de cobre",
+        "diu mirena": "DIU Mirena",
+        "diu kyleena": "DIU Kyleena",
+        "histerossonografia": "histerossonografia",
+        "histerossalpingografia": "histerossalpingografia",
+        "vagina": "vagina",
+        "colo uterino": "colo uterino",
+        "orifício interno do colo": "orifício interno do colo",
+        "orifício externo do colo": "orifício externo do colo",
+        "canal endocervical": "canal endocervical",
+        "endocérvice": "endocérvice",
+        "ectocérvice": "ectocérvice",
+        "miométrio": "miométrio",
+        "endométrio": "endométrio",
+        "cavidade uterina": "cavidade uterina",
+        "trompas de falópio": "tubas uterinas",
+        "tubas uterinas": "tubas uterinas",
+        "ovário direito": "ovário direito",
+        "ovário esquerdo": "ovário esquerdo",
+        "fundo de saco posterior": "fundo de saco posterior",
+        "fundo de saco anterior": "fundo de saco anterior",
+        "espaço vesicouterino": "espaço vesicouterino",
+        "espaço retouterino": "espaço retouterino",
+        "ligamento largo": "ligamento largo",
+        "ligamento redondo": "ligamento redondo",
+        "ligamento uterossacro": "ligamento uterossacro",
+        "artéria uterina": "artéria uterina",
+        "artéria ovariana": "artéria ovariana",
+        "veia uterina": "veia uterina",
+        "veia ovariana": "veia ovariana",
+        "plexo pampiniforme": "plexo pampiniforme",
+        "varizes pélvicas": "varizes pélvicas",
+        "síndrome de congestão pélvica": "síndrome de congestão pélvica",
+        "malformação mulleriana": "malformação mülleriana",
+        "útero bicorno": "útero bicorno",
+        "útero didelfo": "útero didelfo",
+        "útero septado": "útero septado",
+        "útero arqueado": "útero arqueado",
+        "útero unicorno": "útero unicorno",
+        "agenesia uterina": "agenesia uterina",
+        "síndrome de mayer rokitansky kuster hauser": "síndrome de Mayer-Rokitansky-Küster-Hauser",
+        "mrkh": "MRKH",
+        "hímen imperfurado": "hímen imperfurado",
+        "hematocolpos": "hematocolpos",
+        "hematometra": "hematometra",
+        "piometra": "piometra",
+        "mucometra": "mucometra",
+        "câncer de colo de útero": "câncer de colo de útero",
+        "câncer de endométrio": "câncer de endométrio",
+        "câncer de ovário": "câncer de ovário",
+        "tumor de krukenberg": "tumor de Krukenberg",
+        "tumor borderline de ovário": "tumor borderline de ovário",
+        "cistoadenoma seroso": "cistoadenoma seroso",
+        "cistoadenoma mucinoso": "cistoadenoma mucinoso",
+        "cistoadenocarcinoma": "cistoadenocarcinoma",
+        "fibroma ovariano": "fibroma ovariano",
+        "tecoma": "tecoma",
+        "tumor de células da granulosa": "tumor de células da granulosa",
+        "disgerminoma": "disgerminoma",
+        "tumor do seio endodérmico": "tumor do seio endodérmico",
+        "coriocarcinoma": "coriocarcinoma",
+        "carcinoma embrionário": "carcinoma embrionário",
+        "teratoma imaturo": "teratoma imaturo",
+        "struma ovarii": "struma ovarii",
+        "síndrome de meigs": "síndrome de Meigs",
+        "cisto de inclusão peritoneal": "cisto de inclusão peritoneal",
+        "pseudocisto peritoneal": "pseudocisto peritoneal",
+        "cisto de gartner": "cisto de Gartner",
+        "cisto de bartholin": "cisto de Bartholin",
+        "cisto de skene": "cisto de Skene",
+        "endometriose profunda": "endometriose profunda",
+        "endometriose intestinal": "endometriose intestinal",
+        "endometriose vesical": "endometriose vesical",
+        "endometriose ureteral": "endometriose ureteral",
+        "endometriose de septo retovaginal": "endometriose de septo retovaginal",
+        "endometriose de ligamento uterossacro": "endometriose de ligamento uterossacro",
+        "endometriose de fórnice vaginal": "endometriose de fórnice vaginal",
+        "endometriose de parede abdominal": "endometriose de parede abdominal",
+        "endometriose cicatricial": "endometriose cicatricial",
+        "endometriose umbilical": "endometriose umbilical",
+        "endometriose inguinal": "endometriose inguinal",
+        "endometriose diafragmática": "endometriose diafragmática",
+        "endometriose torácica": "endometriose torácica",
+        "endometriose pulmonar": "endometriose pulmonar",
+        "endometriose pleural": "endometriose pleural",
+        "endometriose pericárdica": "endometriose pericárdica",
+        "endometriose nervosa": "endometriose nervosa",
+        "endometriose ciática": "endometriose ciática",
+        "endometriose pudenda": "endometriose pudenda",
+        "endometriose obturadora": "endometriose obturadora",
+        "endometriose femoral": "endometriose femoral",
+        "endometriose genitofemoral": "endometriose genitofemoral",
+        "endometriose ilioinguinal": "endometriose ilioinguinal",
+        "endometriose iliohipogástrica": "endometriose iliohipogástrica",
+        "endometriose de plexo sacral": "endometriose de plexo sacral",
+        "endometriose de plexo lombar": "endometriose de plexo lombar",
+        "endometriose de plexo braquial": "endometriose de plexo braquial",
+        "endometriose de plexo cervical": "endometriose de plexo cervical",
+        "endometriose de plexo celíaco": "endometriose de plexo celíaco",
+        "endometriose de plexo mesentérico superior": "endometriose de plexo mesentérico superior",
+        "endometriose de plexo mesentérico inferior": "endometriose de plexo mesentérico inferior",
+        "endometriose de plexo hipogástrico superior": "endometriose de plexo hipogástrico superior",
+        "endometriose de plexo hipogástrico inferior": "endometriose de plexo hipogástrico inferior",
+        "endometriose de plexo pélvico": "endometriose de plexo pélvico",
+        "endometriose de plexo pudendo": "endometriose de plexo pudendo",
+        "endometriose de plexo coccígeo": "endometriose de plexo coccígeo",
+        "endometriose de gânglio ímpar": "endometriose de gânglio ímpar",
+        "endometriose de cadeia simpática": "endometriose de cadeia simpática",
+        "endometriose de nervo vago": "endometriose de nervo vago",
+        "endometriose de nervo frênico": "endometriose de nervo frênico",
+        "endometriose de nervo esplâncnico": "endometriose de nervo esplâncnico",
+        "endometriose de nervo intercostal": "endometriose de nervo intercostal",
+        "endometriose de nervo subcostal": "endometriose de nervo subcostal",
+        "endometriose de nervo ilioinguinal": "endometriose de nervo ilioinguinal",
+        "endometriose de nervo iliohipogástrico": "endometriose de nervo iliohipogástrico",
+        "endometriose de nervo genitofemoral": "endometriose de nervo genitofemoral",
+        "endometriose de nervo cutâneo femoral lateral": "endometriose de nervo cutâneo femoral lateral",
+        "endometriose de nervo femoral": "endometriose de nervo femoral",
+        "endometriose de nervo obturador": "endometriose de nervo obturador",
+        "endometriose de nervo ciático": "endometriose de nervo ciático",
+        "endometriose de nervo pudendo": "endometriose de nervo pudendo",
+        "endometriose de nervo glúteo superior": "endometriose de nervo glúteo superior",
+        "endometriose de nervo glúteo inferior": "endometriose de nervo glúteo inferior",
+        "endometriose de nervo cutâneo femoral posterior": "endometriose de nervo cutâneo femoral posterior",
+        "endometriose de nervo fibular comum": "endometriose de nervo fibular comum",
+        "endometriose de nervo tibial": "endometriose de nervo tibial",
+        "endometriose de nervo sural": "endometriose de nervo sural",
+        "endometriose de nervo plantar medial": "endometriose de nervo plantar medial",
+        "endometriose de nervo plantar lateral": "endometriose de nervo plantar lateral",
+        "endometriose de nervo digital": "endometriose de nervo digital",
+        "endometriose de nervo craniano": "endometriose de nervo craniano",
+        "endometriose de nervo olfatório": "endometriose de nervo olfatório",
+        "endometriose de nervo óptico": "endometriose de nervo óptico",
+        "endometriose de nervo oculomotor": "endometriose de nervo oculomotor",
+        "endometriose de nervo troclear": "endometriose de nervo troclear",
+        "endometriose de nervo trigêmeo": "endometriose de nervo trigêmeo",
+        "endometriose de nervo abducente": "endometriose de nervo abducente",
+        "endometriose de nervo facial": "endometriose de nervo facial",
+        "endometriose de nervo vestibulococlear": "endometriose de nervo vestibulococlear",
+        "endometriose de nervo glossofaríngeo": "endometriose de nervo glossofaríngeo",
+        "endometriose de nervo acessório": "endometriose de nervo acessório",
+        "endometriose de nervo hipoglosso": "endometriose de nervo hipoglosso",
+        "endometriose de medula espinhal": "endometriose de medula espinhal",
+        "endometriose de meninges": "endometriose de meninges",
+        "endometriose de cérebro": "endometriose de cérebro",
+        "endometriose de cerebelo": "endometriose de cerebelo",
+        "endometriose de tronco encefálico": "endometriose de tronco encefálico",
+        "endometriose de hipófise": "endometriose de hipófise",
+        "endometriose de glândula pineal": "endometriose de glândula pineal",
+        "endometriose de tireoide": "endometriose de tireoide",
+        "endometriose de paratireoide": "endometriose de paratireoide",
+        "endometriose de timo": "endometriose de timo",
+        "endometriose de glândula adrenal": "endometriose de glândula adrenal",
+        "endometriose de pâncreas": "endometriose de pâncreas",
+        "endometriose de fígado": "endometriose de fígado",
+        "endometriose de vesícula biliar": "endometriose de vesícula biliar",
+        "endometriose de baço": "endometriose de baço",
+        "endometriose de estômago": "endometriose de estômago",
+        "endometriose de duodeno": "endometriose de duodeno",
+        "endometriose de jejuno": "endometriose de jejuno",
+        "endometriose de íleo": "endometriose de íleo",
+        "endometriose de ceco": "endometriose de ceco",
+        "endometriose de apêndice": "endometriose de apêndice",
+        "endometriose de cólon ascendente": "endometriose de cólon ascendente",
+        "endometriose de cólon transverso": "endometriose de cólon transverso",
+        "endometriose de cólon descendente": "endometriose de cólon descendente",
+        "endometriose de cólon sigmoide": "endometriose de cólon sigmoide",
+        "endometriose de reto": "endometriose de reto",
+        "endometriose de ânus": "endometriose de ânus",
+        "endometriose de rim": "endometriose de rim",
+        "endometriose de pelve renal": "endometriose de pelve renal",
+        "endometriose de ureter": "endometriose de ureter",
+        "endometriose de bexiga": "endometriose de bexiga",
+        "endometriose de uretra": "endometriose de uretra",
+        "endometriose de vulva": "endometriose de vulva",
+        "endometriose de vagina": "endometriose de vagina",
+        "endometriose de colo de útero": "endometriose de colo de útero",
+        "endometriose de útero": "endometriose de útero",
+        "endometriose de trompa de falópio": "endometriose de trompa de falópio",
+        "endometriose de ovário": "endometriose de ovário",
+        "endometriose de ligamento largo": "endometriose de ligamento largo",
+        "endometriose de ligamento redondo": "endometriose de ligamento redondo",
+        "endometriose de ligamento uterossacro": "endometriose de ligamento uterossacro",
+        "endometriose de peritônio pélvico": "endometriose de peritônio pélvico",
+        "endometriose de peritônio abdominal": "endometriose de peritônio abdominal",
+        "endometriose de omento": "endometriose de omento",
+        "endometriose de mesentério": "endometriose de mesentério",
+        "endometriose de linfonodo": "endometriose de linfonodo",
+        "endometriose de baço acessório": "endometriose de baço acessório",
+        "endometriose de tecido adiposo": "endometriose de tecido adiposo",
+        "endometriose de músculo": "endometriose de músculo",
+        "endometriose de osso": "endometriose de osso",
+        "endometriose de cartilagem": "endometriose de cartilagem",
+        "endometriose de pele": "endometriose de pele",
+        "endometriose de tecido subcutâneo": "endometriose de tecido subcutâneo",
+        "endometriose de mama": "endometriose de mama",
+        "endometriose de olho": "endometriose de olho",
+        "endometriose de ouvido": "endometriose de ouvido",
+        "endometriose de nariz": "endometriose de nariz",
+        "endometriose de boca": "endometriose de boca",
+        "endometriose de faringe": "endometriose de faringe",
+        "endometriose de laringe": "endometriose de laringe",
+        "endometriose de traqueia": "endometriose de traqueia",
+        "endometriose de brônquio": "endometriose de brônquio",
+        "endometriose de pulmão": "endometriose de pulmão",
+        "endometriose de pleura": "endometriose de pleura",
+        "endometriose de coração": "endometriose de coração",
+        "endometriose de pericárdio": "endometriose de pericárdio",
+        "endometriose de vaso sanguíneo": "endometriose de vaso sanguíneo",
+        "endometriose de vaso linfático": "endometriose de vaso linfático",
+
+        // ── OBSTÉTRICO ───────────────────────────────────────────────
+        "diâmetro biparietal": "diâmetro biparietal",
+        "circunferência cefálica": "circunferência cefálica",
+        "circunferência abdominal": "circunferência abdominal",
+        "comprimento femural": "comprimento femoral",
+        "comprimento femoral": "comprimento femoral",
+        "índice do líquido amniótico": "índice do líquido amniótico",
+        "placenta prévia": "placenta prévia",
+        "grau de grannum": "grau de Grannum",
+        "grannum": "Grannum",
+        "colo uterino impérvio": "colo uterino impérvio",
+        "centralização hemodinâmica": "centralização hemodinâmica",
+        "ducto venoso": "ducto venoso",
+        "artéria uterina": "artéria uterina",
+        "artéria umbilical": "artéria umbilical",
+        "diástole zero": "diástole zero",
+        "fluxo diastólico ausente": "fluxo diastólico ausente",
+        "fluxo diastólico reverso": "fluxo diastólico reverso",
+
+        // ── VASCULAR ─────────────────────────────────────────────────
+        "atero esclerose": "aterosclerose",
+        "placa aterosclerótica": "placa aterosclerótica",
+        "trombo embolia": "tromboembolismo",
+        "trombo flebite": "tromboflebite",
+        "trombose venosa profunda": "trombose venosa profunda",
+        "dis secção": "dissecção",
+        "dissecção aórtica": "dissecção aórtica",
+        "aneurisma da aorta": "aneurisma da aorta",
+        "índice de resistência": "índice de resistência",
+        "índice de pulsatilidade": "índice de pulsatilidade",
+        "velocidade de pico sistólico": "velocidade de pico sistólico",
+        "fluxo turbulento": "fluxo turbulento",
+        "fluxo laminar": "fluxo laminar",
+
+        // ── TÓRAX / TC PULMONAR ──────────────────────────────────────
+        "brônco patia": "broncopatia",
+        "bronco patia": "broncopatia",
+        "bronco espasmo": "broncoespasmo",
+        "bronco pneumonia": "broncopneumonia",
+        "bronqui ectasia": "bronquiectasia",
+        "bronco ectasia": "bronquiectasia",
+        "bronco grama": "broncograma",
+        "broncograma aéreo": "broncograma aéreo",
+        "enfisema bolo so": "enfisema bolhoso",
+        "enfisema bolhoso": "enfisema bolhoso",
+        "enfisema centro lobular": "enfisema centrolobular",
+        "enfisema centrolobular": "enfisema centrolobular",
+        "enfisema centro acinar": "enfisema centroacinar",
+        "enfisema para septal": "enfisema parasseptal",
+        "enfisema pan acinar": "enfisema panacinar",
+        "micro nódulo": "micronódulo",
+        "micro nódulos": "micronódulos",
+        "vidro fosco": "vidro fosco",
+        "opacidade em vidro fosco": "opacidade em vidro fosco",
+        "pneumo tórax": "pneumotórax",
+        "pneumo torax": "pneumotórax",
+        "hidro torax": "hidrotórax",
+        "hemo tórax": "hemotórax",
+        "atelecta sia": "atelectasia",
+        "con solidação": "consolidação",
+        "linfadeno patia": "linfadenopatia",
+        "adeno megalia": "adenomegalia",
+        "medias tino": "mediastino",
+        "derrame pleural": "derrame pleural",
+        "espessamento pleural": "espessamento pleural",
+        "fibrose intersticial": "fibrose intersticial",
+        "tcar": "TCAR",
+        "dpoc": "DPOC",
+
+        // ── RESSONÂNCIA MAGNÉTICA ────────────────────────────────────
+        "hiper intensidade": "hiperintensidade",
+        "hipo intensidade": "hipointensidade",
+        "hiperintensidade em t2": "hiperintensidade em T2",
+        "hipointensidade em t1": "hipointensidade em T1",
+        "sequência flair": "sequência FLAIR",
+        "flair": "FLAIR",
+        "sequência dwi": "sequência DWI",
+        "dwi": "DWI",
+        "sequência t1": "sequência T1",
+        "sequência t2": "sequência T2",
+        "t1 com contraste": "T1 com contraste",
+        "gadolínio": "gadolínio",
+        "difusão restrita": "difusão restrita",
+        "coeficiente de difusão aparente": "coeficiente de difusão aparente",
+        "leuco encefalopatia": "leucoencefalopatia",
+        "micro angiopatia cerebral": "microangiopatia cerebral",
+        "atrofia cortical": "atrofia cortical",
+        "atrofia cerebral": "atrofia cerebral",
+        "malformação de chiari": "malformação de Chiari",
+        "hérnia tonsilar": "hérnia tonsilar",
+
+        // ── COLUNA / MSK ─────────────────────────────────────────────
+        "espondilo artrose": "espondiloartrose",
+        "espondilose": "espondilose",
+        "hérnia discal": "hérnia discal",
+        "hérnia de disco": "hérnia de disco",
+        "osteo artrose": "osteoartrose",
+        "osteo fito": "osteófito",
+        "osteo fitos": "osteófitos",
+        "osteofito": "osteófito",
+        "manguito ro tador": "manguito rotador",
+        "manguito rotador": "manguito rotador",
+        "condro malácia": "condromalácia",
+        "lesão meniscal": "lesão meniscal",
+        "ligamento cruzado anterior": "ligamento cruzado anterior",
+        "ligamento cruzado posterior": "ligamento cruzado posterior",
+        "bursite": "bursite",
+        "tendinose": "tendinose",
+        "ruptura parcial": "ruptura parcial",
+        "ruptura total": "ruptura total",
+
+        // ── CLASSIFICAÇÕES ───────────────────────────────────────────
+        "o rads": "O-RADS",
+        "orads": "O-RADS",
+        "pi rads": "PI-RADS",
+
+        // ── ANATOMIA GERAL ───────────────────────────────────────────
+        "retro peritônio": "retroperitônio",
+        "retro peritoneal": "retroperitoneal",
+        "torax": "tórax",
+        "abdomen": "abdômen",
+        "parênquima": "parênquima",
+    };
+
+    function applyMedicalDictionary(text) {
+        Object.entries(medicalDictionary).forEach(([term, correction]) => {
+            const regex = new RegExp(
+                term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'),
+                'gi'
+            );
+            text = text.replace(regex, correction);
+        });
+        return text;
+    }
+
+    function normalizeRaw(text) {
+        // 1. Remove espaços no início e fim
+        text = text.trim();
+
+        // 2. Remove ponto final que o Chrome às vezes adiciona sozinho
+        //    (a gente vai controlar a pontuação manualmente)
+        text = text.replace(/\.\s*$/, '');
+
+        // 3. Converte para minúsculo — a capitalização é controlada
+        //    pela lógica do código, não pelo Chrome
+        text = text.toLowerCase();
+
+        // 4. Remove espaços duplos
+        text = text.replace(/\s{2,}/g, ' ');
+
+        return text;
+    }
+
     // ── PROCESSAMENTO DE TEXTO ───────────────────────────────────────────────
     function processText(rawText, editorTextBefore, nextCapState) {
 
-        let text = rawText;
+        // Normalização inicial: remove espaços extras mas mantém pontuação do Chrome
+        let text = rawText.toLowerCase().trim();
+
+        text = applyProfanityFilter(text);
+        text = applyMedicalDictionary(text);
 
         // 1. COMPOSTOS — sempre antes dos simples
         // Aceita variações com pontuação, espaços extras e a conjunção "e"
         text = text.replace(/\bponto(?:[.,]?\s+(?:e\s+)?)?par[aá]grafo[s]?[.,]?/gi, '__P_PARAGRAPH__');
         text = text.replace(/\bponto(?:[.,]?\s+(?:e\s+)?)?nova[s]?\s+linha[s]?[.,]?/gi,  '__P_NEWLINE__');
-        text = text.replace(/\bpar[aá]grafo[s]?[.,]?/gi,               '__PARAGRAPH__');
-        text = text.replace(/\bnova[s]?\s+linha[s]?[.,]?/gi,               '__NEWLINE__');
+        text = text.replace(/\b(?:ponto\s+)?par[aá]grafo[s]?[.,]?/gi,               '__PARAGRAPH__');
+        text = text.replace(/\b(?:ponto\s+)?nova[s]?\s+linha[s]?[.,]?/gi,               '__NEWLINE__');
 
         // 2. UNIDADES DE MEDIDA — antes de qualquer outra coisa
         text = text.replace(/\bquilogramas?\b/gi, 'kg');
         text = text.replace(/\bmililitros?\b/gi,  'ml');
 
         // 3. "por" entre números → "x"  (ex: "3,5 por 4,2" → "3,5 x 4,2")
+        // Usamos lookahead (?=...) para o segundo número para permitir múltiplas medidas seguidas (3x4x5)
         text = text.replace(
-            /(\d+(?:[.,]\d+)?)\s+por\s+(\d+(?:[.,]\d+)?)/gi,
-            '$1 x $2'
+            /(\d+(?:[.,]\d+)?)\s+por\s+(?=(\d+(?:[.,]\d+)?))/gi,
+            '$1 x '
         );
 
         // 4. PONTUAÇÃO SIMPLES — ordem importa: mais específico primeiro
@@ -147,6 +739,9 @@
             [/\bcentímetros?\b/gi,         'cm'],
             [/\bmilímetros?\b/gi,          'mm'],
             [/\bponto\s+e\s+v[ií]rgula\b/gi, ';'],   // antes de "ponto" e "vírgula"
+            [/\be\s+ponto\s+final\b/gi,    '.'],
+            [/\be\s+ponto\b/gi,            '.'],
+            [/\be\s+v[ií]rgula\b/gi,       ','],
             [/\bponto\s+final\b/gi,        '.'],   // antes de "ponto" sozinho
             [/\bponto\b/gi,                '.'],
             [/\bv[ií]rgula[s]?\b/gi,       ','],
@@ -162,13 +757,44 @@
         replacements.forEach(([re, rep]) => { text = text.replace(re, rep); });
 
         // 5. ESPAÇAMENTO
-        text = text.replace(/\s+([.,;:!?/])/g, '$1');        // "palavra ." -> "palavra."
-        text = text.replace(/([.,;:!?])(\S)/g, '$1 $2');    // ".palavra" -> ". palavra"
-        text = text.replace(/([/])\s+/g, '$1');              // "/ palavra" -> "/palavra"
+        // Sem espaço ANTES de qualquer pontuação ou comando — sempre
+        text = text.replace(/\s+([.,;:!?]|__)/g, '$1');
+        text = text.replace(/([.,;:!?])\s+([.,;:!?])/g, '$1$2'); 
 
-        // 6. CAPITALIZAÇÃO E ESPAÇO INICIAL
+        // Remove espaços ao redor dos comandos internos
+        text = text.replace(/\s*(__P_PARAGRAPH__|__P_NEWLINE__|__PARAGRAPH__|__NEWLINE__)\s*/g, '$1');
+
+        // Garante que não haja espaço antes de pontos e vírgulas que sobraram de substituições
+        text = text.replace(/\s+([.,])/g, '$1');
+
+        // Caso específico: " e ." ou " e ," que sobraram
+        text = text.replace(/\s+e\s+([.,;:!?])/gi, '$1');
+        text = text.replace(/\s+e([.,;:!?])/gi, '$1');
+
+        // Vírgula entre números — sem espaço depois (3,5 não 3, 5)
+        text = text.replace(/(\d),\s+(\d)/g, '$1,$2');
+
+        // Espaço depois de pontuação — só quando vier letra, não número
+        text = text.replace(/([,;:!?])([a-zA-ZÀ-ú])/g, '$1 $2');
+        text = text.replace(/\.([a-zA-ZÀ-ú])/g, '. $1');
+
+        // Limpa espaço duplo
+        text = text.replace(/\s{2,}/g, ' ');
+        text = text.trimStart();
+
+        // 6. FILTRO DE PALAVRÕES
+        // text = applyProfanityFilter(text); // Already applied at the beginning
+
+        // 7. DICIONÁRIO MÉDICO
+        // text = applyMedicalDictionary(text); // Already applied at the beginning
+
+        // 8. CAPITALIZAÇÃO E ESPAÇO INICIAL
+        const trimmedBefore = editorTextBefore.trimEnd();
+        const isStart = trimmedBefore.length === 0;
+        // Verifica se o cursor está em um novo parágrafo (checa se o texto antes termina com quebra de linha ou se o editor está vazio)
+        // Usamos regex que ignora espaços no final para detectar a quebra de linha anterior
+        const isNewParagraph = isStart || /[\n\r]\s*$/.test(editorTextBefore) || editorTextBefore.endsWith('</p>') || editorTextBefore.endsWith('<br>');
         const lastChar = editorTextBefore.slice(-1);
-        const isStart = editorTextBefore.trim().length === 0;
 
         // Se o novo texto começa com pontuação, remove qualquer espaço inicial dele
         if (/^[.,;:!?]/.test(text.trimStart())) {
@@ -179,19 +805,45 @@
         if (!isStart && !text.startsWith(' ') && text.length > 0 && !text.startsWith('__')) {
             const endsInWordOrPunct = /[a-zA-ZÀ-ú0-9.,;:!?]/.test(lastChar);
             const startsWithWord = /^[a-zA-ZÀ-ú0-9]/.test(text.trimStart());
+            
+            // Não adiciona espaço se o texto anterior for um comando de parágrafo/nova linha
+            const afterCommand = /(__P_PARAGRAPH__|__P_NEWLINE__|__PARAGRAPH__|__NEWLINE__)\s*$/.test(editorTextBefore);
 
-            if (endsInWordOrPunct && startsWithWord && !/\s$/.test(editorTextBefore)) {
+            if (endsInWordOrPunct && startsWithWord && !/\s$/.test(editorTextBefore) && !afterCommand) {
                 text = ' ' + text;
             }
         }
 
         if (text.length > 0 && !text.startsWith('__')) {
             const afterAbbrev  = ABBREV_PATTERN.test(editorTextBefore.trimEnd());
-            const needsCap     = !afterAbbrev && (isStart || /[.!?\n]/.test(lastChar) || nextCapState);
+            
+            const charBefore = editorTextBefore.trimEnd().slice(-1);
+            const afterColon = charBefore === ':';
 
-            text = needsCap
-                ? text.charAt(0).toUpperCase() + text.slice(1)
-                : text.charAt(0).toLowerCase() + text.slice(1);
+            const needsCap = !afterAbbrev && (
+                isStart ||
+                isNewParagraph ||
+                /[.!?\n]/.test(charBefore) ||
+                afterColon ||
+                nextCapState
+            );
+
+            // Capitaliza a primeira LETRA, não apenas o primeiro caractere (preserva o espaço inicial se houver)
+            if (needsCap) {
+                text = text.replace(/^(\s*)([a-zÀ-ú])/, (match, p1, p2) => p1 + p2.toUpperCase());
+            } else {
+                text = text.replace(/^(\s*)([A-ZÀ-Ú])/, (match, p1, p2) => p1 + p2.toLowerCase());
+            }
+
+            // Capitalização interna: após qualquer comando de parágrafo/nova linha dentro do texto
+            text = text.replace(/(__P_PARAGRAPH__|__P_NEWLINE__|__PARAGRAPH__|__NEWLINE__|\n)\s*([a-zÀ-ú])/g, (match, cmd, char) => {
+                return cmd + char.toUpperCase();
+            });
+
+            // Capitalização interna: após pontuação terminal (. ! ?)
+            text = text.replace(/([.!?])\s+([a-zÀ-ú])/g, (match, punct, char) => {
+                return punct + ' ' + char.toUpperCase();
+            });
         }
 
         // Limpeza final de espaços
@@ -204,7 +856,17 @@
                       || text.includes('__P_PARAGRAPH__')
                       || text.includes('__P_NEWLINE__')
                       || text.includes('__PARAGRAPH__')
-                      || text.includes('__NEWLINE__');
+                      || text.includes('__NEWLINE__')
+                      || text.includes('\n');
+
+        // Se o texto terminar com um comando de parágrafo, a próxima palavra deve ser maiúscula
+        // e não deve ter espaço antes
+        if (text.endsWith('__P_PARAGRAPH__') || text.endsWith('__P_NEWLINE__') || text.endsWith('__PARAGRAPH__') || text.endsWith('__NEWLINE__')) {
+            text = text.trimEnd();
+        }
+
+        // Final clean: remove trailing spaces to let the next call handle spacing correctly
+        text = text.trimEnd();
 
         return { text, nextCap };
     }
@@ -321,7 +983,7 @@
         // Insere texto final
         if (final) {
             editor.focus();
-            const parts = final.split(/(__P_PARAGRAPH__|__P_NEWLINE__|__PARAGRAPH__|__NEWLINE__)/);
+            const parts = final.split(/(__P_PARAGRAPH__|__P_NEWLINE__|__PARAGRAPH__|__NEWLINE__|\n)/);
 
             parts.forEach(part => {
                 if (!part) return;
@@ -332,11 +994,14 @@
                 } else if (part === '__P_NEWLINE__') {
                     document.execCommand('insertText', false, '.');
                     document.execCommand('insertParagraph', false, null);
-                } else if (part === '__PARAGRAPH__') {
-                    document.execCommand('insertParagraph', false, null);
-                } else if (part === '__NEWLINE__') {
+                } else if (part === '__PARAGRAPH__' || part === '__NEWLINE__' || part === '\n') {
                     document.execCommand('insertParagraph', false, null);
                 } else {
+                    // Remove leading space if the previous part was a paragraph/newline command
+                    // Or if the editor currently ends with a paragraph tag
+                    if (part.startsWith(' ') && (editor.innerHTML.endsWith('</p>') || editor.innerHTML.endsWith('<br>'))) {
+                        part = part.substring(1);
+                    }
                     document.execCommand('insertText', false, part);
                 }
             });

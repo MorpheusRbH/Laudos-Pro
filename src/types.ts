@@ -23,4 +23,6 @@ export interface Phrase {
   id: string;
   maskId: string;
   text: string;
+  title?: string;
+  category?: string;
 }

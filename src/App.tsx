@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Calculator,
   Save,
-  X,
   Bold,
   Italic,
   List,
@@ -20,7 +19,11 @@ import {
   Ruler,
   Activity,
   ClipboardList,
-  BookOpen
+  BookOpen,
+  ArrowRight,
+  ArrowDown,
+  Search,
+  X
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -117,6 +120,7 @@ export default function App() {
   const [isStandaloneCalc, setIsStandaloneCalc] = useState(false);
   const [showOradsModal, setShowOradsModal] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [phraseSearchQuery, setPhraseSearchQuery] = useState('');
   useEffect(() => {
     document.execCommand('styleWithCSS', false, 'true');
   }, []);
@@ -131,6 +135,90 @@ export default function App() {
   const [isCentralPanelOpen, setIsCentralPanelOpen] = useState(true);
   const [editorZoom, setEditorZoom] = useState(1);
   
+  // Tabs State
+  const [tabs, setTabs] = useState<{ id: string; title: string; content: string }[]>([
+    { id: '1', title: 'Laudo 1', content: '' }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>('1');
+
+  const handleTabChange = (tabId: string) => {
+    if (activeTabId === tabId) return;
+    
+    const currentContent = editorRef.current?.innerHTML || '';
+    
+    setTabs(prev => prev.map(t => 
+      t.id === activeTabId ? { ...t, content: currentContent } : t
+    ));
+    
+    setActiveTabId(tabId);
+    
+    // We need to use a setTimeout here to wait for the state update to finish
+    // before we can get the new tab's content from the updated tabs array.
+    setTimeout(() => {
+      setTabs(currentTabs => {
+        const newTab = currentTabs.find(t => t.id === tabId);
+        if (editorRef.current && newTab) {
+          editorRef.current.innerHTML = newTab.content;
+          const event = new Event('input', { bubbles: true });
+          editorRef.current.dispatchEvent(event);
+        }
+        return currentTabs;
+      });
+    }, 0);
+  };
+
+  const handleNewReport = () => {
+    const currentContent = editorRef.current?.innerHTML || '';
+    const newId = Date.now().toString();
+    const newTab = { id: newId, title: `Laudo ${tabs.length + 1}`, content: '' };
+    
+    setTabs(prev => {
+      const updated = prev.map(t => 
+        t.id === activeTabId ? { ...t, content: currentContent } : t
+      );
+      return [...updated, newTab];
+    });
+    
+    setActiveTabId(newId);
+    
+    if (editorRef.current) {
+      editorRef.current.innerHTML = '';
+      const event = new Event('input', { bubbles: true });
+      editorRef.current.dispatchEvent(event);
+    }
+  };
+
+  const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation();
+    if (tabs.length === 1) {
+      if (editorRef.current) {
+        editorRef.current.innerHTML = '';
+        const event = new Event('input', { bubbles: true });
+        editorRef.current.dispatchEvent(event);
+      }
+      setTabs([{ ...tabs[0], content: '' }]);
+      return;
+    }
+    
+    const newTabs = tabs.filter(t => t.id !== tabId);
+    
+    if (activeTabId === tabId) {
+      const nextTab = newTabs[newTabs.length - 1];
+      setTabs(newTabs);
+      setActiveTabId(nextTab.id);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = nextTab.content;
+        const event = new Event('input', { bubbles: true });
+        editorRef.current.dispatchEvent(event);
+      }
+    } else {
+      const currentContent = editorRef.current?.innerHTML || '';
+      setTabs(newTabs.map(t => 
+        t.id === activeTabId ? { ...t, content: currentContent } : t
+      ));
+    }
+  };
+
   // Auto-fit effect
   useEffect(() => {
     const handleResize = () => {
@@ -316,6 +404,8 @@ export default function App() {
 
   const [showAdminModal, setShowAdminModal] = useState<'specialty' | 'mask' | 'phrase' | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [phraseToInsert, setPhraseToInsert] = useState<Phrase | null>(null);
+  const [editedPhraseText, setEditedPhraseText] = useState('');
 
   // Persistence
   useEffect(() => {
@@ -326,7 +416,7 @@ export default function App() {
 
   // Auto-calculate obstetrics fields
   useEffect(() => {
-    if (!showFieldModal || !selectedMask || !['m4', 'm5', 'm6'].includes(selectedMask.id)) return;
+    if (!showFieldModal || !selectedMask || !['m4', 'm5', 'm6', 'm10'].includes(selectedMask.id)) return;
 
     let updates: Record<string, string> = {};
 
@@ -432,12 +522,34 @@ export default function App() {
       if (conclusion && fieldValues.conclusao_doppler !== conclusion.trim()) {
         updates.conclusao_doppler = conclusion.trim();
       }
+    } else if (selectedMask.id === 'm10') {
+      const ld_c = parseFloat(fieldValues.ld_c);
+      const ld_l = parseFloat(fieldValues.ld_l);
+      const ld_a = parseFloat(fieldValues.ld_a);
+      const le_c = parseFloat(fieldValues.le_c);
+      const le_l = parseFloat(fieldValues.le_l);
+      const le_a = parseFloat(fieldValues.le_a);
+
+      let ld_vol = 0;
+      let le_vol = 0;
+
+      if (!isNaN(ld_c) && !isNaN(ld_l) && !isNaN(ld_a)) {
+        ld_vol = ld_c * ld_l * ld_a * 0.523;
+      }
+      if (!isNaN(le_c) && !isNaN(le_l) && !isNaN(le_a)) {
+        le_vol = le_c * le_l * le_a * 0.523;
+      }
+
+      if (ld_vol > 0 || le_vol > 0) {
+        const total = (ld_vol + le_vol).toFixed(2);
+        if (fieldValues.vol_total !== total) updates.vol_total = total;
+      }
     }
 
     if (Object.keys(updates).length > 0) {
       setFieldValues(prev => ({ ...prev, ...updates }));
     }
-  }, [fieldValues.ccn, fieldValues.dbp, fieldValues.cc, fieldValues.ca, fieldValues.cf, fieldValues.ig_clinica_semanas, fieldValues.ig_clinica_dias, fieldValues.ig_semanas, fieldValues.ig_dias, showFieldModal, selectedMask, useBarcelona]);
+  }, [fieldValues.ccn, fieldValues.dbp, fieldValues.cc, fieldValues.ca, fieldValues.cf, fieldValues.ig_clinica_semanas, fieldValues.ig_clinica_dias, fieldValues.ig_semanas, fieldValues.ig_dias, fieldValues.ld_c, fieldValues.ld_l, fieldValues.ld_a, fieldValues.le_c, fieldValues.le_l, fieldValues.le_a, showFieldModal, selectedMask, useBarcelona]);
 
   // Helpers
   const insertAtCursor = (text: string) => {
@@ -452,6 +564,26 @@ export default function App() {
     // Use execCommand for better integration with contentEditable (preserves undo history)
     document.execCommand('insertHTML', false, html);
     saveSelection(); // Update saved selection after insertion
+  };
+
+  const insertAtEnd = (text: string) => {
+    if (!editorRef.current) return;
+    
+    // Ensure there's a break before inserting at the end if the editor is not empty
+    const prefix = editorRef.current.innerHTML.length > 0 ? '<br><br>' : '';
+    const html = prefix + text.replace(/\n/g, '<br>');
+    
+    // Append to the end
+    editorRef.current.innerHTML += html;
+    
+    // Trigger page count update
+    const event = new Event('input', { bubbles: true });
+    editorRef.current.dispatchEvent(event);
+  };
+
+  const handlePhraseClick = (phrase: Phrase) => {
+    setPhraseToInsert(phrase);
+    setEditedPhraseText(phrase.text);
   };
 
   const stripHtml = (html: string) => {
@@ -613,11 +745,11 @@ export default function App() {
     }
   };
 
-  const savePhrase = (text: string) => {
+  const savePhrase = (phraseData: Partial<Phrase>) => {
     if (editingItem) {
-      setPhrases(prev => prev.map(p => p.id === editingItem.id ? { ...p, text } : p));
+      setPhrases(prev => prev.map(p => p.id === editingItem.id ? { ...p, ...phraseData } as Phrase : p));
     } else {
-      setPhrases(prev => [...prev, { id: Date.now().toString(), maskId: selectedMask!.id, text }]);
+      setPhrases(prev => [...prev, { ...phraseData, id: Date.now().toString(), maskId: selectedMask!.id } as Phrase]);
     }
     setShowAdminModal(null);
     setEditingItem(null);
@@ -978,36 +1110,73 @@ export default function App() {
                 <p className="text-xs font-medium">Nenhuma frase cadastrada</p>
               </div>
             ) : (
-              <div>
-                <p className="text-[9px] lg:text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 lg:mb-3">Frases Salvas</p>
-                <div className="flex flex-wrap gap-2 lg:gap-3">
-                  {currentPhrases.map(phrase => (
-                  <div key={phrase.id} className="group relative">
-                    <button
-                      onClick={() => insertAtCursor(phrase.text + ' ')}
-                      className="px-3 lg:px-5 py-2 lg:py-3 bg-white border border-slate-300 rounded-lg lg:rounded-xl text-[11px] lg:text-sm font-medium text-slate-700 hover:border-emerald-500 hover:text-emerald-800 hover:shadow-lg transition-all active:scale-95 text-left max-w-[180px] lg:max-w-xs shadow-sm truncate"
-                    >
-                      {phrase.text}
-                    </button>
-                    {isAdmin && (
-                      <div className="absolute -top-2 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setEditingItem(phrase); setShowAdminModal('phrase'); }}
-                          className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
-                        >
-                          <Settings size={10} />
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); deletePhrase(phrase.id); }}
-                          className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-red-600"
-                        >
-                          <Trash2 size={10} />
-                        </button>
-                      </div>
-                    )}
+              <div className="space-y-6">
+                <div className="relative mb-4">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search size={16} className="text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Pesquisar frases..."
+                    value={phraseSearchQuery}
+                    onChange={(e) => setPhraseSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  />
+                </div>
+                {(Object.entries(
+                  currentPhrases
+                    .filter(p => {
+                      if (!phraseSearchQuery) return true;
+                      const q = phraseSearchQuery.toLowerCase();
+                      return (
+                        p.title?.toLowerCase().includes(q) ||
+                        p.text.toLowerCase().includes(q) ||
+                        p.category?.toLowerCase().includes(q)
+                      );
+                    })
+                    .reduce((acc, phrase) => {
+                      const cat = phrase.category || 'Geral';
+                      if (!acc[cat]) acc[cat] = [];
+                      acc[cat].push(phrase);
+                      return acc;
+                    }, {} as Record<string, Phrase[]>)
+                ) as [string, Phrase[]][]).map(([category, categoryPhrases]) => (
+                  <div key={category} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{category}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {categoryPhrases.map(phrase => (
+                        <div key={phrase.id} className="group relative w-full">
+                          <button
+                            onClick={() => handlePhraseClick(phrase)}
+                            className="w-full p-3 bg-white border border-slate-300 rounded-xl text-[11px] text-slate-700 hover:border-emerald-500 hover:text-emerald-800 hover:shadow-md transition-all active:scale-95 text-left shadow-sm flex flex-col gap-1.5"
+                          >
+                            {phrase.title && <span className="font-bold text-slate-900 text-xs">{phrase.title}</span>}
+                            <span className="font-medium leading-relaxed whitespace-pre-wrap">{phrase.text}</span>
+                          </button>
+                          {isAdmin && (
+                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setEditingItem(phrase); setShowAdminModal('phrase'); }}
+                                className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-blue-600"
+                              >
+                                <Settings size={10} />
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); deletePhrase(phrase.id); }}
+                                className="p-1.5 bg-white shadow-md border border-slate-100 rounded-lg text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-                </div>
               </div>
             )}
           </div>
@@ -1017,6 +1186,39 @@ export default function App() {
 
       {/* 3 - Editor Area (Google Docs Style) */}
       <main className="flex-1 bg-slate-200 flex flex-col min-w-0 overflow-hidden relative border-l border-slate-300">
+        {/* Tabs Area */}
+        <div className="flex items-center gap-1 px-2 pt-2 bg-slate-100 border-b border-slate-300 overflow-x-auto shrink-0">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-bold transition-all border border-b-0",
+                activeTabId === tab.id 
+                  ? "bg-white text-blue-700 border-slate-300 z-10 relative -mb-px" 
+                  : "bg-slate-200 text-slate-500 border-transparent hover:bg-slate-300"
+              )}
+            >
+              {tab.title}
+              {tabs.length > 1 && (
+                <span 
+                  onClick={(e) => handleCloseTab(e, tab.id)}
+                  className="p-0.5 rounded-full hover:bg-slate-300/50 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X size={12} />
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            onClick={handleNewReport}
+            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-t-lg transition-colors ml-1"
+            title="Novo Laudo"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
         {/* Toolbar */}
         <div className="sticky top-0 z-20 bg-white border-b border-slate-300 px-4 py-2 flex flex-col gap-2 shadow-sm shrink-0">
           {/* Row 1: Primary Actions & View Controls */}
@@ -1049,7 +1251,7 @@ export default function App() {
 
               <div className="flex items-center gap-1">
                 <button 
-                  onClick={newReport}
+                  onClick={handleNewReport}
                   className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-blue-200"
                 >
                   <Plus size={16} /> Novo Laudo
@@ -1618,6 +1820,54 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Phrase Insertion Modal */}
+      {phraseToInsert && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Smart Phrase</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{phraseToInsert.category}</p>
+              </div>
+              <button onClick={() => setPhraseToInsert(null)} className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8">
+              <div className="mb-6">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Conteúdo da Frase</label>
+                <textarea
+                  value={editedPhraseText}
+                  onChange={(e) => setEditedPhraseText(e.target.value)}
+                  className="w-full h-48 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none leading-relaxed font-medium"
+                  placeholder="Edite a frase antes de inserir..."
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => { insertAtCursor(editedPhraseText + ' '); setPhraseToInsert(null); }}
+                  className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <ArrowRight size={18} /> Inserir no Cursor
+                </button>
+                <button
+                  onClick={() => { insertAtEnd(editedPhraseText); setPhraseToInsert(null); }}
+                  className="flex-1 px-6 py-4 bg-slate-800 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-slate-900 shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <ArrowDown size={18} /> Inserir ao Final
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Admin Modals */}
       <AnimatePresence>
         {showAdminModal && (
@@ -1719,11 +1969,29 @@ export default function App() {
                 )}
 
                 {showAdminModal === 'phrase' && (
-                  <form onSubmit={(e) => { e.preventDefault(); savePhrase((e.target as any).text.value); }}>
+                  <form onSubmit={(e) => { 
+                    e.preventDefault(); 
+                    const form = e.target as any;
+                    savePhrase({
+                      title: form.title.value,
+                      category: form.category.value,
+                      text: form.text.value
+                    }); 
+                  }}>
                     <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-bold text-slate-600 ml-1">Título (Opcional)</label>
+                          <input name="title" defaultValue={editingItem?.title} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-bold text-slate-600 ml-1">Categoria (Opcional)</label>
+                          <input name="category" defaultValue={editingItem?.category} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+                        </div>
+                      </div>
                       <div className="space-y-1.5">
                         <label className="text-sm font-bold text-slate-600 ml-1">Texto da Frase</label>
-                        <textarea name="text" defaultValue={editingItem?.text} required rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none" />
+                        <textarea name="text" defaultValue={editingItem?.text} required rows={5} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none" />
                       </div>
                       <button type="submit" className="w-full py-4 bg-emerald-600 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">
                         Salvar Frase
@@ -1799,8 +2067,4 @@ export default function App() {
       )}
     </div>
   );
-}
-
-function newReport() {
-  // This is handled inside the component now, but kept for reference if needed
 }
