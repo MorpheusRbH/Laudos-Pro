@@ -1444,6 +1444,11 @@ ${text}`;
                   <option value="0.8">80%</option>
                   <option value="0.9">90%</option>
                   <option value="1.0">100%</option>
+                  <option value="1.1">110%</option>
+                  <option value="1.2">120%</option>
+                  <option value="1.3">130%</option>
+                  <option value="1.4">140%</option>
+                  <option value="1.5">150%</option>
                 </select>
               </div>
 
