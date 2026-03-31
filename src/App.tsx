@@ -23,7 +23,9 @@ import {
   ArrowRight,
   ArrowDown,
   Search,
-  X
+  X,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -134,6 +136,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCentralPanelOpen, setIsCentralPanelOpen] = useState(true);
   const [editorZoom, setEditorZoom] = useState(1);
+  const [aiConfirm, setAiConfirm] = useState<{ show: boolean; ai: string; url: string } | null>(null);
   
   // Tabs State
   const [tabs, setTabs] = useState<{ id: string; title: string; content: string }[]>([
@@ -696,6 +699,66 @@ export default function App() {
     }
   };
 
+  const handleAskAI = async (ai: 'chatgpt' | 'gemini' | 'claude') => {
+    if (!editorRef.current) return;
+    const text = editorRef.current.innerText.trim();
+    if (!text) {
+      alert('O laudo está vazio. Escreva algo antes de perguntar à IA.');
+      return;
+    }
+
+    const prompt = `Você é um assistente especializado em edição e revisão de laudos radiológicos, atuando como uma ferramenta pura de auxílio diagnóstico e redação médica.
+
+Sua PRIMEIRA AÇÃO deve ser confirmar o recebimento do laudo abaixo e perguntar ao usuário o que ele deseja fazer, apresentando as seguintes opções (e outras que considerar pertinentes):
+- **Revisão Gramatical:** Correção de ortografia, acentuação e estilo médico.
+- **Refinamento de Texto:** Tornar a redação mais clara, técnica e profissional.
+- **Formatação Estruturada:** Organizar o laudo em tópicos e seções padronizadas.
+- **Cálculo de Volumes:** Calcular volumes automaticamente sempre que houver 3 medidas de uma estrutura (usando a fórmula L x A x P x 0.52).
+- **Verificação de Consistência:** Analisar se existem dados contraditórios entre a descrição e a conclusão.
+- **Adição de Patologias:** Sugerir descrições técnicas de patologias baseadas nos achados.
+- **Análise Comparativa:** Comparar com dados anteriores (se você os fornecer a seguir).
+- **Incorporação de Mudanças:** Aplicar alterações específicas que você solicitar.
+
+Instruções cruciais:
+1. Aguarde a escolha do usuário antes de realizar alterações profundas, a menos que ele solicite uma "revisão completa" de imediato.
+2. Seja extremamente preciso com terminologia médica e classificações (BI-RADS, TI-RADS, etc).
+3. Mantenha o foco apenas no laudo, sem comentários informais.
+
+LAUDO PARA REVISÃO:
+
+${text}`;
+    
+    // Always copy to clipboard for reliability
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch (err) {
+      console.error('Erro ao copiar para área de transferência:', err);
+    }
+
+    let url = '';
+    let aiName = '';
+    switch (ai) {
+      case 'chatgpt':
+        url = `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
+        aiName = 'ChatGPT';
+        break;
+      case 'gemini':
+        url = `https://gemini.google.com/app?q=${encodeURIComponent(prompt)}`;
+        aiName = 'Gemini';
+        break;
+      case 'claude':
+        url = `https://claude.ai/new`;
+        aiName = 'Claude';
+        break;
+    }
+
+    if (ai === 'chatgpt') {
+      window.open(url, '_blank');
+    } else {
+      setAiConfirm({ show: true, ai: aiName, url });
+    }
+  };
+
   const clearEditor = () => {
     if (editorRef.current) {
       editorRef.current.innerHTML = '';
@@ -763,6 +826,54 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen bg-slate-100 text-slate-900 font-sans overflow-hidden relative">
+      {/* AI Confirmation Modal */}
+      <AnimatePresence>
+        {aiConfirm && aiConfirm.show && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAiConfirm(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden p-8 flex flex-col items-center text-center gap-6"
+            >
+              <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 shadow-inner">
+                <Sparkles size={32} />
+              </div>
+              <div>
+                <h3 className="font-black text-xl text-slate-900 mb-2">Laudo Copiado!</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                  O laudo e as instruções foram copiados. Clique no botão abaixo e, na nova aba, use <span className="text-purple-600 font-bold">Ctrl + V</span> para colar.
+                </p>
+              </div>
+              <div className="flex flex-col w-full gap-3">
+                <button 
+                  onClick={() => {
+                    window.open(aiConfirm.url, '_blank');
+                    setAiConfirm(null);
+                  }}
+                  className="w-full py-4 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Abrir {aiConfirm.ai} <ExternalLink size={18} />
+                </button>
+                <button 
+                  onClick={() => setAiConfirm(null)}
+                  className="w-full py-3 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* 1 - Sidebar: Specialties */}
       <aside className={cn(
         "bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-2xl z-30 transition-all duration-300 overflow-hidden",
@@ -1261,6 +1372,33 @@ export default function App() {
                   className="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-amber-200"
                 >
                   <Eraser size={16} /> Limpar
+                </button>
+              </div>
+
+              <div className="h-6 w-px bg-slate-300 mx-2" />
+
+              <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-200 gap-1">
+                <div className="flex items-center gap-1.5 px-2 border-r border-slate-200 mr-1">
+                  <Sparkles size={14} className="text-purple-600" />
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pergunte à IA</span>
+                </div>
+                <button 
+                  onClick={() => handleAskAI('chatgpt')}
+                  className="px-3 py-1.5 hover:bg-white hover:shadow-sm rounded-lg text-[10px] font-bold text-slate-600 hover:text-blue-600 transition-all flex items-center gap-1.5"
+                >
+                  ChatGPT
+                </button>
+                <button 
+                  onClick={() => handleAskAI('gemini')}
+                  className="px-3 py-1.5 hover:bg-white hover:shadow-sm rounded-lg text-[10px] font-bold text-slate-600 hover:text-blue-600 transition-all flex items-center gap-1.5"
+                >
+                  Gemini
+                </button>
+                <button 
+                  onClick={() => handleAskAI('claude')}
+                  className="px-3 py-1.5 hover:bg-white hover:shadow-sm rounded-lg text-[10px] font-bold text-slate-600 hover:text-blue-600 transition-all flex items-center gap-1.5"
+                >
+                  Claude
                 </button>
               </div>
             </div>
