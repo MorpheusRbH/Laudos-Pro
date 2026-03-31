@@ -169,12 +169,13 @@ export const INITIAL_MASKS: Mask[] = [
     id: 'm10',
     name: 'USG Tireoide',
     specialtyId: '7',
-    baseContent: '<b>ULTRASSONOGRAFIA DA TIREOIDE</b><br><br><b>Técnica:</b><br>Exame realizado com transdutor linear de alta frequência.<br><br><b>Análise:</b><br><b>Tireoide</b> tópica, contornos regulares e ecotextura homogênea.<br><b>Lobo direito</b> mede {{ld_c}} x {{ld_l}} x {{ld_a}} cm (Vol: {{ld_vol}} cm³).<br><b>Lobo esquerdo</b> mede {{le_c}} x {{le_l}} x {{le_a}} cm (Vol: {{le_vol}} cm³).<br><b>Istmo</b> mede {{istmo}} mm.<br>Volume total da glândula: {{vol_total}} cm³.<br>Ausência de massas ou coleções intraglandulares.<br>Regiões cervicais laterais sem linfonodomegalias suspeitas.<br><br><b>Conclusão:</b><br>Exame sem alterações significativas.',
+    baseContent: '<b>ULTRASSONOGRAFIA DA TIREOIDE</b><br><br><b>Técnica:</b><br>Exame realizado com transdutor linear de alta frequência.<br><br><b>Análise:</b><br><b>Tireoide</b> tópica, contornos regulares e ecotextura homogênea.<br><b>Lobo direito</b> mede {{ld_c}} x {{ld_l}} x {{ld_a}} cm (Vol: {{ld_vol}} cm³).<br><b>Lobo esquerdo</b> mede {{le_c}} x {{le_l}} x {{le_a}} cm (Vol: {{le_vol}} cm³).<br><b>Istmo</b> mede {{istmo}} mm.<br>Volume total da glândula: {{vol_total}} cm³.<br>{{achados}}<br>Regiões cervicais laterais sem linfonodomegalias suspeitas.<br><br><b>Conclusão:</b><br>Exame sem alterações significativas.',
     fields: [
       { id: 'ld', label: 'Lobo Direito', type: 'measurement3d', unit: 'cm' },
       { id: 'le', label: 'Lobo Esquerdo', type: 'measurement3d', unit: 'cm' },
       { id: 'istmo', label: 'Istmo', type: 'number', unit: 'mm' },
-      { id: 'vol_total', label: 'Volume Total', type: 'number', unit: 'cm³' }
+      { id: 'vol_total', label: 'Volume Total', type: 'number', unit: 'cm³' },
+      { id: 'achados', label: 'Achados (Nódulos)', type: 'textarea', unit: '' }
     ]
   }
 ];

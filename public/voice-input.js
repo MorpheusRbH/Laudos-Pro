@@ -689,6 +689,31 @@
         return text;
     }
 
+    function applyDynamicPhrases(text) {
+        try {
+            const savedPhrases = localStorage.getItem('laudospro_phrases_v2');
+            if (savedPhrases) {
+                const phrases = JSON.parse(savedPhrases);
+                // Common misspellings of "arroba"
+                const arrobaVariants = ['arroba', 'a roupa', 'arromba', 'a roba', 'arruba', 'a rumba', 'rouba', 'a roda', 'aroba'];
+                
+                phrases.forEach(p => {
+                    if (!p.title) return;
+                    const title = p.title.toLowerCase().trim();
+                    const escapedTitle = title.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    
+                    arrobaVariants.forEach(variant => {
+                        const regex = new RegExp('\\b' + variant + '\\s+' + escapedTitle + '\\b', 'gi');
+                        text = text.replace(regex, '@ ' + title);
+                    });
+                });
+            }
+        } catch (e) {
+            console.error('Error applying dynamic phrases:', e);
+        }
+        return text;
+    }
+
     function normalizeRaw(text) {
         // 1. Remove espaços no início e fim
         text = text.trim();
@@ -715,6 +740,7 @@
 
         text = applyProfanityFilter(text);
         text = applyMedicalDictionary(text);
+        text = applyDynamicPhrases(text);
 
         // 1. COMPOSTOS — sempre antes dos simples
         // Aceita variações com pontuação, espaços extras e a conjunção "e"
@@ -877,6 +903,26 @@
         recognition.lang          = 'pt-BR';
         recognition.continuous    = true;
         recognition.interimResults = true;
+
+        // Tenta carregar as frases para o SpeechGrammarList para melhorar o reconhecimento
+        try {
+            const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+            if (SpeechGrammarList) {
+                const savedPhrases = localStorage.getItem('laudospro_phrases_v2');
+                if (savedPhrases) {
+                    const phrases = JSON.parse(savedPhrases);
+                    const titles = phrases.map(p => p.title).filter(Boolean);
+                    if (titles.length > 0) {
+                        const grammar = '#JSGF V1.0; grammar phrases; public <phrase> = ' + titles.join(' | ') + ' ;';
+                        const speechRecognitionList = new SpeechGrammarList();
+                        speechRecognitionList.addFromString(grammar, 1);
+                        recognition.grammars = speechRecognitionList;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error setting up SpeechGrammarList:', e);
+        }
 
         recognition.onstart = () => {
             setUIState('listening');

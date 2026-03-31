@@ -25,7 +25,8 @@ import {
   Search,
   X,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Zap
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -45,6 +46,7 @@ import { CalculadoraIG } from './components/CalculadoraIG';
 import { CalculadoraBishop } from './components/CalculadoraBishop';
 import CalculadoraBiradsMama from './components/CalculadoraBiradsMama';
 import { CalculadoraOrads } from './components/CalculadoraOrads';
+import { CalculadoraTirads } from './components/CalculadoraTirads';
 
 // Editor Ruler Component
 const EditorRuler = () => {
@@ -70,7 +72,27 @@ export default function App() {
   const [showCalcIG, setShowCalcIG] = useState(false);
   const [showCalcBishop, setShowCalcBishop] = useState(false);
   const [showCalcBiradsMama, setShowCalcBiradsMama] = useState(false);
+  const [showCalcTirads, setShowCalcTirads] = useState(false);
   
+  const [autocompleteState, setAutocompleteState] = useState<{
+    isOpen: boolean;
+    query: string;
+    suggestions: Phrase[];
+    position: { top: number; left: number };
+    node: Node | null;
+    startOffset: number;
+    endOffset: number;
+  }>({
+    isOpen: false,
+    query: '',
+    suggestions: [],
+    position: { top: 0, left: 0 },
+    node: null,
+    startOffset: 0,
+    endOffset: 0,
+  });
+  const [autocompleteSelectedIndex, setAutocompleteSelectedIndex] = useState(0);
+
   const [specialties, setSpecialties] = useState<Specialty[]>(() => {
     const saved = localStorage.getItem('laudospro_specialties_v3');
     if (saved) {
@@ -327,6 +349,275 @@ export default function App() {
       const range = selection.getRangeAt(0);
       if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
         savedRangeRef.current = range;
+      }
+    }
+  };
+
+  const handleEditorInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+    
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed) {
+      setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+
+    if (!editorRef.current) return;
+
+    // Get all text before the cursor across all nodes
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editorRef.current);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    const textBeforeCursor = preCaretRange.toString();
+
+    // Find the last '@' or 'arroba' before the cursor
+    const lastAtSymbolIndex = textBeforeCursor.lastIndexOf('@');
+    const lastArrobaWordIndex = textBeforeCursor.toLowerCase().lastIndexOf('arroba');
+    
+    let triggerIndex = -1;
+    let triggerLength = 0;
+
+    if (lastAtSymbolIndex !== -1 && lastAtSymbolIndex > lastArrobaWordIndex) {
+      triggerIndex = lastAtSymbolIndex;
+      triggerLength = 1;
+    } else if (lastArrobaWordIndex !== -1) {
+      triggerIndex = lastArrobaWordIndex;
+      triggerLength = 6;
+    }
+
+    if (triggerIndex !== -1) {
+      // Allow spaces so dictation works (e.g. "@ bexiga vazia" or "arroba bexiga vazia")
+      const textAfterTrigger = textBeforeCursor.substring(triggerIndex + triggerLength);
+      
+      // If there are too many characters after trigger without a match, abort to avoid keeping dropdown open forever
+      if (textAfterTrigger.length > 50) {
+        setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+        return;
+      }
+
+      const word = textAfterTrigger;
+      // Remove spaces, accents, and common punctuation that dictation might add
+      const normalizedWord = word.toLowerCase().replace(/[\s.,!?;:]+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+      if (normalizedWord.length > 0) {
+        // Levenshtein distance function for fuzzy matching
+        const levenshtein = (a: string, b: string) => {
+          if (a.length === 0) return b.length;
+          if (b.length === 0) return a.length;
+          const matrix = [];
+          for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+          }
+          for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+          }
+          for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+              if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+              } else {
+                matrix[i][j] = Math.min(
+                  matrix[i - 1][j - 1] + 1,
+                  matrix[i][j - 1] + 1,
+                  matrix[i - 1][j] + 1
+                );
+              }
+            }
+          }
+          return matrix[b.length][a.length];
+        };
+
+        // Check for exact match or very close match (fuzzy) for auto-insertion
+        let bestMatch = null;
+        let bestDistance = Infinity;
+
+        // Search across ALL phrases, prioritizing the ones from the current mask
+        const sortedPhrases = [...phrases].sort((a, b) => {
+          if (a.maskId === selectedMask?.id && b.maskId !== selectedMask?.id) return -1;
+          if (a.maskId !== selectedMask?.id && b.maskId === selectedMask?.id) return 1;
+          return 0;
+        });
+
+        for (const p of sortedPhrases) {
+          const normalizedTitle = p.title.toLowerCase().replace(/[\s.,!?;:]+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          
+          if (normalizedTitle === normalizedWord) {
+            bestMatch = p;
+            bestDistance = 0;
+            break; // Exact match found, stop searching
+          }
+          
+          // If the word is long enough, allow some typos (e.g., 1 typo for every 5 characters)
+          if (normalizedWord.length >= 4) {
+            const distance = levenshtein(normalizedTitle, normalizedWord);
+            const maxAllowedDistance = Math.floor(normalizedTitle.length / 4); // 25% error margin
+            
+            if (distance <= maxAllowedDistance && distance < bestDistance) {
+              bestDistance = distance;
+              bestMatch = p;
+            }
+          }
+        }
+
+        if (bestMatch) {
+          // Find the exact node and offset for the trigger to replace it
+          const walker = document.createTreeWalker(editorRef.current, NodeFilter.SHOW_TEXT, null);
+          let currentNode;
+          let currentOffset = 0;
+          let startNode = null;
+          let startOffset = 0;
+
+          while ((currentNode = walker.nextNode())) {
+            const len = currentNode.textContent?.length || 0;
+            if (currentOffset + len > triggerIndex) {
+              startNode = currentNode;
+              startOffset = triggerIndex - currentOffset;
+              break;
+            }
+            currentOffset += len;
+          }
+
+          if (startNode) {
+            // Auto-insert exact or fuzzy match
+            range.setStart(startNode, startOffset);
+            // range.end is already at the cursor
+            range.deleteContents();
+            
+            const html = bestMatch.text.replace(/\n/g, '<br>') + '&nbsp;';
+            const el = document.createElement('div');
+            el.innerHTML = html;
+            
+            const frag = document.createDocumentFragment();
+            let lastNode;
+            while ((lastNode = el.firstChild)) {
+              frag.appendChild(lastNode);
+            }
+            
+            range.insertNode(frag);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            saveSelection();
+            setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+            return;
+          }
+        }
+      }
+
+      // Find matching phrases (partial match)
+      const suggestions = currentPhrases.filter(p => {
+        const normalizedTitle = p.title.toLowerCase().replace(/[\s.,!?;:]+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return normalizedTitle.includes(normalizedWord);
+      });
+
+      if (suggestions.length > 0) {
+        // Find the exact node and offset for the trigger to position the dropdown
+        const walker = document.createTreeWalker(editorRef.current, NodeFilter.SHOW_TEXT, null);
+        let currentNode;
+        let currentOffset = 0;
+        let startNode = null;
+        let startOffset = 0;
+
+        while ((currentNode = walker.nextNode())) {
+          const len = currentNode.textContent?.length || 0;
+          if (currentOffset + len > triggerIndex) {
+            startNode = currentNode;
+            startOffset = triggerIndex - currentOffset;
+            break;
+          }
+          currentOffset += len;
+        }
+
+        if (startNode) {
+          // Get cursor position for dropdown
+          const tempRange = document.createRange();
+          tempRange.setStart(startNode, startOffset);
+          tempRange.setEnd(startNode, startOffset);
+          const rect = tempRange.getBoundingClientRect();
+          
+          setAutocompleteState({
+            isOpen: true,
+            query: word,
+            suggestions: suggestions.slice(0, 5), // Show up to 5 suggestions
+            position: { top: rect.bottom, left: rect.left },
+            node: startNode,
+            startOffset: startOffset,
+            endOffset: range.startOffset, // This might be in a different node, but we don't use it for deletion anymore
+          });
+          setAutocompleteSelectedIndex(0);
+        } else {
+          setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+        }
+      } else {
+        setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+      }
+    } else {
+      setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  const insertAutocompletePhrase = (phrase: Phrase) => {
+    const { node, startOffset, endOffset } = autocompleteState;
+    if (!node) return;
+
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    const range = document.createRange();
+    
+    try {
+      range.setStart(node, startOffset);
+      range.setEnd(node, endOffset);
+      range.deleteContents();
+      
+      const html = phrase.text.replace(/\n/g, '<br>') + '&nbsp;';
+      
+      const el = document.createElement('div');
+      el.innerHTML = html;
+      
+      const frag = document.createDocumentFragment();
+      let lastNode;
+      while ((lastNode = el.firstChild)) {
+        frag.appendChild(lastNode);
+      }
+      
+      range.insertNode(frag);
+      range.collapse(false);
+      
+      selection.removeAllRanges();
+      selection.addRange(range);
+      
+      saveSelection();
+    } catch (e) {
+      console.error("Error inserting phrase:", e);
+    }
+
+    setAutocompleteState(prev => ({ ...prev, isOpen: false }));
+    editorRef.current?.focus();
+  };
+
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (autocompleteState.isOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setAutocompleteSelectedIndex(prev => 
+          prev < autocompleteState.suggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setAutocompleteSelectedIndex(prev => prev > 0 ? prev - 1 : 0);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (autocompleteState.suggestions[autocompleteSelectedIndex]) {
+          insertAutocompletePhrase(autocompleteState.suggestions[autocompleteSelectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setAutocompleteState(prev => ({ ...prev, isOpen: false }));
       }
     }
   };
@@ -1236,6 +1527,33 @@ ${text}`;
               </div>
             )}
 
+            {selectedSpecId === '7' && (
+              <div className="mb-10">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Calculadoras de Tireoide</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowCalcTirads(true)}
+                    className="group relative text-left p-5 rounded-3xl transition-all duration-300 flex flex-col gap-4 bg-white border border-slate-300 shadow-md hover:shadow-2xl hover:border-blue-400 hover:-translate-y-1 overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm relative z-10 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                      <Calculator size={24} />
+                    </div>
+                    <div className="relative z-10">
+                      <span className="font-black text-slate-800 text-lg block mb-1">TI-RADS (ACR)</span>
+                      <span className="text-xs text-slate-500 font-medium leading-relaxed">Classificação de nódulos tireoidianos</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Abrir Calculadora <ChevronRight size={12} />
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!selectedMask ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
                 <MessageSquare size={32} className="opacity-20" />
@@ -1290,7 +1608,14 @@ ${text}`;
                             onClick={() => handlePhraseClick(phrase)}
                             className="w-full p-3 bg-white border border-slate-300 rounded-xl text-[11px] text-slate-700 hover:border-emerald-500 hover:text-emerald-800 hover:shadow-md transition-all active:scale-95 text-left shadow-sm flex flex-col gap-1.5"
                           >
-                            {phrase.title && <span className="font-bold text-slate-900 text-xs">{phrase.title}</span>}
+                            {phrase.title && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-slate-900 text-xs">{phrase.title}</span>
+                                <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  @{phrase.title.toLowerCase().replace(/\s+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}
+                                </span>
+                              </div>
+                            )}
                             <span className="font-medium leading-relaxed whitespace-pre-wrap">{phrase.text}</span>
                           </button>
                           {isAdmin && (
@@ -1558,6 +1883,8 @@ ${text}`;
                 <div 
                   ref={editorRef}
                   contentEditable
+                  onInput={handleEditorInput}
+                  onKeyDown={handleEditorKeyDown}
                   onBlur={saveSelection}
                   onKeyUp={saveSelection}
                   onMouseUp={saveSelection}
@@ -1594,6 +1921,50 @@ ${text}`;
           </div>
         </div>
       </main>
+
+      {/* Autocomplete Dropdown */}
+      <AnimatePresence>
+        {autocompleteState.isOpen && autocompleteState.suggestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed z-[150] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden min-w-[300px] max-w-[400px]"
+            style={{
+              top: autocompleteState.position.top + 5,
+              left: autocompleteState.position.left,
+            }}
+          >
+            <div className="bg-slate-50 px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+              <Zap size={14} className="text-blue-500" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Sugestões de Frases</span>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto p-2">
+              {autocompleteState.suggestions.map((phrase, index) => (
+                <button
+                  key={phrase.id}
+                  onClick={() => insertAutocompletePhrase(phrase)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex flex-col gap-1 group ${
+                    index === autocompleteSelectedIndex ? 'bg-blue-50' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`font-bold text-sm ${index === autocompleteSelectedIndex ? 'text-blue-700' : 'text-slate-700 group-hover:text-blue-700'}`}>
+                      @{phrase.title.toLowerCase().replace(/\s+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                      index === autocompleteSelectedIndex ? 'bg-blue-100 text-blue-600' : 'text-slate-400 bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-600'
+                    }`}>
+                      {phrase.category}
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{phrase.text}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Field Modal */}
       <AnimatePresence>
@@ -2009,6 +2380,18 @@ ${text}`;
             
             <div className="p-8">
               <div className="mb-6">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-blue-800 uppercase tracking-widest mb-1">Atalho Rápido</p>
+                    <p className="text-sm text-blue-600">Digite este comando no editor para inserir a frase diretamente:</p>
+                  </div>
+                  <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm">
+                    <code className="text-sm font-black text-blue-700">@{phraseToInsert.title.toLowerCase().replace(/\s+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "")}</code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Conteúdo da Frase</label>
                 <textarea
                   value={editedPhraseText}
@@ -2231,6 +2614,24 @@ ${text}`;
               insertAtCursor(content);
             }
             setShowCalcBiradsMama(false);
+          }}
+        />
+      )}
+
+      {showCalcTirads && (
+        <CalculadoraTirads 
+          onClose={() => setShowCalcTirads(false)}
+          onInsert={(text) => {
+            if (showFieldModal && selectedMask?.id === 'm10') {
+              setFieldValues(prev => ({
+                ...prev,
+                'achados': (prev['achados'] || '') + (prev['achados'] ? '\n\n' : '') + text
+              }));
+            } else {
+              const content = `<br><b>Nódulos Tireoidianos:</b><br>${text.replace(/\n/g, '<br>')}<br>`;
+              insertAtCursor(content);
+            }
+            setShowCalcTirads(false);
           }}
         />
       )}
