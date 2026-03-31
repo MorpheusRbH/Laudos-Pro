@@ -911,8 +911,7 @@ ${text}`;
             <Stethoscope size={18} />
           </div>
           <div className="overflow-hidden">
-            <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">LaudosPro</h1>
-            <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider truncate">Ultrassonografia</p>
+            <h1 className="font-bold text-base leading-tight tracking-tight text-white truncate">Laudos Pro</h1>
           </div>
         </div>
 
